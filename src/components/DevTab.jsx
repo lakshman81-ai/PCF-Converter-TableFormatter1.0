@@ -59,25 +59,25 @@ export function DevTab() {
           )}
         </div>
 
-          <div className="overflow-x-auto border rounded max-h-64 overflow-y-auto">
+          <div className="overflow-x-auto border border-black max-h-64 overflow-y-auto">
             <table className="w-full text-left border-collapse">
-            <thead className="bg-gray-100 sticky top-0">
+            <thead className="bg-gray-100 sticky top-0 border-b border-black">
               <tr>
-                <th className="p-2 border-b">Rule ID</th>
-                <th className="p-2 border-b">Name</th>
-                <th className="p-2 border-b text-center">Impl?</th>
-                <th className="p-2 border-b text-center">Runs</th>
+                <th className="p-2 border-r border-black font-bold text-sm">Rule ID</th>
+                <th className="p-2 border-r border-black font-bold text-sm">Name</th>
+                <th className="p-2 border-r border-black text-center font-bold text-sm">Impl?</th>
+                <th className="p-2 text-center font-bold text-sm">Runs</th>
               </tr>
             </thead>
             <tbody>
                 {rules.map(([id, r]) => (
-                  <tr key={id} className={`border-b ${!r.implemented ? "bg-red-50" : (r.executionCount || 0) === 0 ? "bg-amber-50" : ""}`}>
-                    <td className="p-2 font-mono text-xs">{id}</td>
-                    <td className="p-2">{r.name}</td>
-                    <td className="p-2 text-center font-bold">
+                  <tr key={id} className={`border-b border-black ${!r.implemented ? "bg-red-50" : (r.executionCount || 0) === 0 ? "bg-amber-50" : ""}`}>
+                    <td className="p-2 font-mono text-xs border-r border-black">{id}</td>
+                    <td className="p-2 text-xs border-r border-black">{r.name}</td>
+                    <td className="p-2 text-center font-bold border-r border-black">
                       {r.implemented ? <span className="text-green-600">✓</span> : <span className="text-red-600">✗</span>}
                     </td>
-                    <td className="p-2 text-center">{r.executionCount || 0}</td>
+                    <td className="p-2 text-center text-xs">{r.executionCount || 0}</td>
                   </tr>
                 ))}
               </tbody>
@@ -98,21 +98,21 @@ export function DevTab() {
                 {benchmarkResults.failed > 0 && <span className="text-red-600 font-bold ml-2">{benchmarkResults.failed} FAILED.</span>}
               </p>
 
-              <div className="overflow-x-auto border rounded max-h-64 overflow-y-auto">
+              <div className="overflow-x-auto border border-black max-h-64 overflow-y-auto">
                 <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-100 sticky top-0">
+                <thead className="bg-gray-100 sticky top-0 border-b border-black">
                   <tr>
-                    <th className="p-2 border-b">Test ID</th>
-                    <th className="p-2 border-b">Description</th>
-                    <th className="p-2 border-b text-center">Result</th>
+                    <th className="p-2 border-r border-black font-bold text-sm">Test ID</th>
+                    <th className="p-2 border-r border-black font-bold text-sm">Description</th>
+                    <th className="p-2 text-center font-bold text-sm">Result</th>
                   </tr>
                 </thead>
                 <tbody>
                     {benchmarkResults.results.map((r, i) => (
-                      <tr key={i} className={`border-b ${r.status !== 'PASS' ? 'bg-red-50' : ''}`}>
-                        <td className="p-2 font-mono text-xs">{r.id}</td>
-                        <td className="p-2">{r.description}</td>
-                        <td className="p-2 text-center font-bold">
+                      <tr key={i} className={`border-b border-black ${r.status !== 'PASS' ? 'bg-red-50' : ''}`}>
+                        <td className="p-2 font-mono text-xs border-r border-black">{r.id}</td>
+                        <td className="p-2 text-xs border-r border-black">{r.description}</td>
+                        <td className="p-2 text-center font-bold text-xs">
                           {r.status === 'PASS'
                             ? <span className="text-green-600">✓ PASS</span>
                             : <span className="text-red-600">✗ FAIL</span>}

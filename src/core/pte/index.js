@@ -1,38 +1,32 @@
 /**
  * PTE CONVERSION — Case Detect & Main Entry
- * Implementation of PART 3 of WI-PCF-002 Rev.0
  */
-
+import { fuzzyMatchHeader } from '../../utils/fuzzy';
 import { enrichWithRealType } from './caseA';
 import { deriveWithLineKey, deriveWithoutLineKey } from './caseB';
 import { twoPassOrphanSweep, pureOrphanSweep } from './caseD';
-import { validateDataTable } from '../schema';
-import { registerRule } from '../ruleRegistry';
+import { registerRule, logRuleExecution } from '../ruleRegistry';
 
+// Register ONLY the PTE rules we actually have implemented (PTE-01, PTE-03, PTE-06, PTE-07, etc)
 [
-  "R-PTE-01", "R-PTE-02", "R-PTE-03", "R-PTE-04", "R-PTE-05", "R-PTE-06", "R-PTE-07",
-  "R-PTE-08", "R-PTE-09", "R-PTE-10", "R-PTE-11", "R-PTE-12", "R-PTE-20", "R-PTE-21",
-  "R-PTE-22", "R-PTE-29", "R-PTE-31", "R-PTE-34", "R-PTE-41", "R-PTE-42", "R-PTE-50",
+  "R-PTE-01", "R-PTE-03", "R-PTE-06", "R-PTE-07", "R-PTE-08", "R-PTE-09",
+  "R-PTE-10", "R-PTE-11", "R-PTE-12", "R-PTE-20", "R-PTE-21", "R-PTE-22",
+  "R-PTE-29", "R-PTE-31", "R-PTE-34", "R-PTE-41", "R-PTE-42", "R-PTE-50",
   "R-PTE-51", "R-PTE-52"
 ].forEach(ruleId => registerRule(ruleId));
 
-export function selectPTECase(intermediateRows, config) {
-  if (!intermediateRows || intermediateRows.length === 0) return "UNKNOWN";
+function hasColumn(headers, name) {
+  return fuzzyMatchHeader(name, headers) !== null;
+}
 
-  const first100 = intermediateRows.slice(0, 100);
-
-  const hasRef = first100.some(r => r.RefNo != null);
-  const hasPoint = first100.some(r => r.Point != null);
-  const hasPPoint = first100.some(r => r.PPoint != null);
-  const hasLineKey = config.pte.lineKeyEnabled && first100.some(r => r.Line_Key != null);
+export function selectPTECase(headers, rows, config) {
+  const hasRef = hasColumn(headers, "RefNo");
+  const hasPoint = hasColumn(headers, "Point");
+  const hasPPoint = hasColumn(headers, "PPoint");
+  const hasLineKey = config.pte.lineKeyEnabled && hasColumn(headers, config.pte.lineKeyColumn || "Line_Key");
   const isSequential = config.pte.sequentialData;
 
-  const refPtAvailable = config.pte.refPtPptAvailable === "yes" ||
-                        (config.pte.refPtPptAvailable === "auto" && hasRef && hasPoint && hasPPoint);
-
-  if (refPtAvailable && isSequential) {
-    return "CASE_A";
-  }
+  if (hasRef && hasPoint && hasPPoint) return "CASE_A";
   if (isSequential && hasLineKey) return "CASE_B_a";
   if (isSequential && !hasLineKey) return "CASE_B_b";
   if (!isSequential && hasLineKey) return "CASE_D_a";
@@ -40,138 +34,70 @@ export function selectPTECase(intermediateRows, config) {
 }
 
 export function runPTEConversion(intermediateRows, config, log) {
-  const pteCase = selectPTECase(intermediateRows, config);
+  if (!intermediateRows || intermediateRows.length === 0) return [];
+
+  const headers = Object.keys(intermediateRows[0]);
+  const pteCase = selectPTECase(headers, intermediateRows, config);
+
   log.push({ type: "Info", message: `PTE Conversion started. Detected Case: ${pteCase}` });
 
-  let enrichedRows = [];
+  let resultTable = [];
 
-  switch(pteCase) {
-    case "CASE_A":
-      enrichedRows = enrichWithRealType(intermediateRows);
+  switch (pteCase) {
+    case "CASE_A": {
+      // For now, Case A just enriches and returns raw rows for further pipeline,
+      // but to map to elements, it must pass through processCaseB or similar grouping.
+      // Assuming CASE_B processes enriched arrays for mapping.
+      const enriched = enrichWithRealType(intermediateRows);
+      resultTable = deriveWithLineKey(enriched, config);
       break;
+    }
     case "CASE_B_a":
-      enrichedRows = deriveWithLineKey(intermediateRows, config);
+    case "CASE_B_b": {
+      const useLineKey = pteCase === "CASE_B_a";
+      resultTable = useLineKey ? deriveWithLineKey(intermediateRows, config) : deriveWithoutLineKey(intermediateRows, config);
       break;
-    case "CASE_B_b":
-      enrichedRows = deriveWithoutLineKey(intermediateRows, config);
-      break;
+    }
     case "CASE_D_a":
-      const { orderedChains } = twoPassOrphanSweep(intermediateRows, config, log);
-      // Flatten chains and apply B(a)
-      const sortedRows = [];
-      for (const chain of Object.values(orderedChains)) {
-        sortedRows.push(...chain);
-      }
-      enrichedRows = deriveWithLineKey(sortedRows, config);
+    case "CASE_D_b": {
+      const useLineKey = pteCase === "CASE_D_a";
+      resultTable = useLineKey ? twoPassOrphanSweep(intermediateRows, config, log) : pureOrphanSweep(intermediateRows, config, log);
       break;
-    case "CASE_D_b":
-      const { pureChains } = pureOrphanSweep(intermediateRows, config, log);
-      const sortedPureRows = [];
-      for (const chain of pureChains) {
-        sortedPureRows.push(...chain);
-      }
-      enrichedRows = deriveWithoutLineKey(sortedPureRows, config);
-      break;
+    }
     default:
-      log.push({ type: "Error", message: `Unknown PTE Case. Cannot proceed.` });
+      log.push({ type: "Error", message: `Unknown PTE case: ${pteCase}` });
       return [];
   }
 
-  // Transform enriched point rows into Element Rows (Data Table format)
-  const dataTable = transformToElements(enrichedRows, config, log);
-
-  return validateDataTable(dataTable);
+  // After elements are assembled, we map them to the Data Table schema
+  return mapToDataTable(resultTable, config, log);
 }
 
-import { vec } from '../../utils/math';
-
-function transformToElements(rows, config, log) {
-  // Common builder logic for all cases (R-PTE-34, R-PTE-35, etc)
-  const elements = [];
-  let rowIndex = 1;
-
-  for (let i = 0; i < rows.length; i++) {
-    const pt = rows[i];
-    const type = pt.Type?.toUpperCase() || "";
-
-    // R-PTE-06: ANCI -> SUPPORT + Implicit Pipe
-    if (["ANCI", "RSTR", "SUPPORT"].includes(type)) {
-       elements.push({
-         _source: "PTE",
-         _rowIndex: rowIndex++,
-         type: "SUPPORT",
-         supportCoor: pt.coord,
-         bore: pt.bore,
-         csvSeqNo: pt.Sequence
-       });
-       continue;
-    }
-
-    if (type === "BRAN") {
-       // BRAN is a chain start marker, not a component itself
-       continue;
-    }
-
-    if (pt.Point === 1) {
-       // This point is EP1 of a component
-       // Find the corresponding EP2 (the next point in sequence)
-       let nextPt = i + 1 < rows.length ? rows[i+1] : null;
-
-       if (!nextPt || !pt.coord || !nextPt.coord) continue;
-
-       let ep1 = pt.coord;
-       let ep2 = nextPt.coord;
-       let cp = null;
-       let bp = null;
-       let branchBore = null;
-
-       // Handle special components
-       if (type === "TEE") {
-           // TEE: EP1 = pt, EP2 = next non-tee, CP = midpoint
-           // Simplified for initial pass
-           cp = vec.mid(ep1, ep2);
-           bp = { ...cp, z: cp.z + 100 }; // Mock branch point
-           branchBore = pt.bore;
-       } else if (type === "ELBO" || type === "BEND") {
-           cp = { x: ep1.x, y: ep1.y, z: ep2.z }; // Mock bend intersection
-       } else if (type === "OLET") {
-           cp = ep1;
-           ep2 = null; // OLET has no EPs
-           ep1 = null;
-           bp = { ...cp, z: cp.z + 100 };
-           branchBore = 50;
-       }
-
-       // Map to standard PCF types
-       const pcfType = mapType(type);
-
-       elements.push({
-         _source: "PTE",
-         _rowIndex: rowIndex++,
-         type: pcfType,
-         ep1: ep1,
-         ep2: ep2,
-         cp: cp,
-         bp: bp,
-         bore: pt.bore,
-         branchBore: branchBore,
-         csvSeqNo: pt.Sequence,
-         refNo: pt.RefNo,
-         skey: pt.skey,
-       });
-    }
-  }
-
-  return elements;
-}
-
-function mapType(type) {
-   const t = type.toUpperCase();
-   if (t === "ELBO") return "BEND";
-   if (t === "FLAN") return "FLANGE";
-   if (t === "VALV") return "VALVE";
-   if (t === "REDC" || t === "REDU") return "REDUCER-CONCENTRIC";
-   if (t === "REDE") return "REDUCER-ECCENTRIC";
-   if (t === "PCOM") return "PIPE";
-   return t;
+function mapToDataTable(elements, config, log) {
+  // elements is an array of objects resembling the Data Table schema,
+  // generated by caseA/B/D modules
+  return elements.map((el, i) => ({
+    ...el,
+    _rowIndex: i + 1,
+    _source: "PTE",
+    _modified: el._modified || {},
+    _logTags: el._logTags || [],
+    csvSeqNo: el.csvSeqNo || null,
+    type: (el.type || "").toUpperCase(),
+    text: el.text || "",
+    pipelineRef: el.pipelineRef || "",
+    refNo: el.refNo || "",
+    bore: el.bore || 0,
+    ep1: el.ep1 || null,
+    ep2: el.ep2 || null,
+    cp: el.cp || null,
+    bp: el.bp || null,
+    branchBore: el.branchBore || null,
+    skey: el.skey || "",
+    supportCoor: el.supportCoor || null,
+    supportName: el.supportName || "",
+    supportGuid: el.supportGuid || "",
+    ca: el.ca || {1:null, 2:null, 3:null, 4:null, 5:null, 6:null, 7:null, 8:null, 9:null, 10:null, 97:null, 98:null},
+    fixingAction: "",
+  }));
 }
