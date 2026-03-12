@@ -29,7 +29,7 @@ export function runValidation(dataTable, config, log) {
       addResult("V1", "ERROR", row._rowIndex, `ERROR [V1]: (0,0,0) coordinate detected.`);
     }
 
-    // V2: Decimal consistency (comparing length of stringified decimals against config)
+    // V2: Decimal consistency (Auto-detect precision and ensure it's uniform)
     if (row.ep1 && typeof row.bore === 'number') {
       const boreStr = row._rawBore || row.bore.toString();
       const xStr = row._rawX || row.ep1.x.toString();
@@ -39,12 +39,12 @@ export function runValidation(dataTable, config, log) {
       const xDec = (xStr.split('.')[1] || '').length;
       const yDec = (yStr.split('.')[1] || '').length;
 
-      // Use max decimal found in coords to represent coordinate decimals, since trailing zeroes get dropped
+      // Use max decimal found in coords to represent coordinate decimals
       const coordDecs = Math.max(xDec, yDec);
 
-      // Ensure that ALL inputs respect the decimal config or at least match each other
+      // Only warn if they actually mismatch internally against EACH OTHER, rather than a hard config
       if (bDec !== coordDecs && (bDec > 0 || coordDecs > 0)) {
-         addResult("V2", "WARNING", row._rowIndex, `WARNING [V2]: Decimal precision mismatch. Bore: ${bDec}, Coords max: ${coordDecs}`);
+         addResult("V2", "WARNING", row._rowIndex, `WARNING [V2]: Decimal precision mismatch. Bore: ${bDec} decimal(s), Coords: ${coordDecs} decimal(s)`);
       }
     }
 

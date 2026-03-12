@@ -119,9 +119,17 @@ function App() {
                           onClick={async () => {
                              try {
                                const { default: BM_DATA } = await import('./tests/benchmark_data.json', { with: { type: "json" } });
-                               const mockTest = BM_DATA.find(b => b.setup?.Import_Type === 'Element_CSV' && b.input?.length > 0);
+                               // Find any benchmark that has a "CSV SEQ NO" or "Sequence" in its input indicating it's raw CSV data
+                               const mockTest = BM_DATA.find(b => b.input?.length > 0 && b.input[0]["CSV SEQ NO"] || b.input?.[0]["Sequence"]);
                                const data = mockTest ? mockTest.input : [];
-                               if (data.length === 0) throw new Error("No mock data found in benchmark file.");
+                               if (data.length === 0) {
+                                   // Fallback: generate a dummy row so it doesn't crash if benchmark_data has no raw CSV tests
+                                   data.push({
+                                      "Sequence": 1, "Type": "PIPE", "PIPELINE": "TEST-LINE-1",
+                                      "BORE": 100, "EP1 COORDS": "0 0 0", "EP2 COORDS": "1000 0 0",
+                                      "CA1": "TEST-CA1", "CA8": "15.5"
+                                   });
+                               }
 
                                const { parseElementCSV } = await import('./core/parsers/elementCSV');
 
