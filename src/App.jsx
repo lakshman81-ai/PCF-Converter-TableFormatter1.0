@@ -118,8 +118,11 @@ function App() {
                           className="px-4 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 text-sm font-bold"
                           onClick={async () => {
                              try {
-                               const response = await fetch('/mockData.json');
-                               const data = await response.json();
+                               const { default: BM_DATA } = await import('./tests/benchmark_data.json', { with: { type: "json" } });
+                               const mockTest = BM_DATA.find(b => b.setup?.Import_Type === 'Element_CSV' && b.input?.length > 0);
+                               const data = mockTest ? mockTest.input : [];
+                               if (data.length === 0) throw new Error("No mock data found in benchmark file.");
+
                                const { parseElementCSV } = await import('./core/parsers/elementCSV');
 
                                const columnMap = {

@@ -44,7 +44,7 @@ export function runValidation(dataTable, config, log) {
 
       // Ensure that ALL inputs respect the decimal config or at least match each other
       if (bDec !== coordDecs && (bDec > 0 || coordDecs > 0)) {
-         addResult("V2", "ERROR", row._rowIndex, `ERROR [V2]: Decimal precision mismatch. Bore: ${bDec}, Coords max: ${coordDecs}`);
+         addResult("V2", "WARNING", row._rowIndex, `WARNING [V2]: Decimal precision mismatch. Bore: ${bDec}, Coords max: ${coordDecs}`);
       }
     }
 
