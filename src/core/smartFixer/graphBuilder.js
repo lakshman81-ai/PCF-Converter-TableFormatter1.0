@@ -4,6 +4,89 @@
 import { vec } from '../../utils/math';
 
 export function buildConnectivityGraph(dataTable, config) {
+  const strategy = config.smartFixer?.chainingStrategy ?? "strict_sequential";
+
+  if (strategy === "strict_sequential") {
+    return buildSequentialGraph(dataTable, config);
+  } else {
+    return buildSpatialGraph(dataTable, config);
+  }
+}
+
+function filterToComponents(dataTable) {
+  return dataTable
+    .filter(row => row.type && !["ISOGEN-FILES","UNITS-BORE","UNITS-CO-ORDS",
+      "UNITS-WEIGHT","UNITS-BOLT-DIA","UNITS-BOLT-LENGTH",
+      "PIPELINE-REFERENCE","MESSAGE-SQUARE"].includes(row.type.toUpperCase()))
+    .map(row => ({
+      ...row,
+      entryPoint: getEntryPoint(row),
+      exitPoint: getExitPoint(row),
+      branchExitPoint: getBranchExitPoint(row),
+    }));
+}
+
+function findNearestByCoord(components, targetPt, tolerance, excludeRowIndex) {
+  let best = null;
+  let bestDist = tolerance + 1;
+  for (const comp of components) {
+    if (comp._rowIndex === excludeRowIndex) continue;
+    const ep = getEntryPoint(comp);
+    if (!ep) continue;
+    const d = vec.dist(targetPt, ep);
+    if (d < bestDist) { bestDist = d; best = comp; }
+  }
+  return best;
+}
+
+function buildSequentialGraph(dataTable, config) {
+  const tolerance = config.smartFixer?.connectionTolerance ?? 25.0;
+  const reviewMax = config.smartFixer?.reviewGapMax ?? 100.0;
+  const components = filterToComponents(dataTable);
+
+  const edges = new Map();
+  const branchEdges = new Map();
+  const hasIncoming = new Set();
+
+  for (let i = 0; i < components.length - 1; i++) {
+    const curr = components[i];
+    const next = components[i + 1];
+    const type = (curr.type || "").toUpperCase();
+
+    // Skip: SUPPORT is a point element — chain passes through it
+    if (type === "SUPPORT") continue;
+
+    const exitPt = getExitPoint(curr);
+    const entryPt = getEntryPoint(next);
+
+    if (!exitPt || !entryPt) continue;
+
+    const gap = vec.dist(exitPt, entryPt);
+
+    // Always link sequential elements — but log the gap
+    // The previous implementation used a 5000mm cutoff but that breaks sequential chaining completely
+    // We want the GapAnalyzer to handle large gaps, EXCEPT if it's an absurd jump (e.g., 20000mm)
+    if (gap <= (config.smartFixer?.maxChainingGap ?? 5000)) {
+      edges.set(curr._rowIndex, next);
+      hasIncoming.add(next._rowIndex);
+    }
+
+    // TEE branch: look for next element whose EP1 is near BP
+    if (type === "TEE" && curr.bp) {
+      const branchStart = findNearestByCoord(components, curr.bp, tolerance, curr._rowIndex);
+      if (branchStart) {
+        branchEdges.set(curr._rowIndex, branchStart);
+        hasIncoming.add(branchStart._rowIndex);
+      }
+    }
+  }
+
+  const terminals = components.filter(c => !hasIncoming.has(c._rowIndex) && (c.type || "").toUpperCase() !== "SUPPORT");
+
+  return { components, edges, branchEdges, terminals, strategy: "strict_sequential" };
+}
+
+export function buildSpatialGraph(dataTable, config) {
   const tolerance = config.smartFixer?.connectionTolerance ?? 25.0;
   const gridSnap = config.smartFixer?.gridSnapResolution ?? 1.0;
 
@@ -14,16 +97,7 @@ export function buildConnectivityGraph(dataTable, config) {
   });
   const coordKey = (c) => `${c.x},${c.y},${c.z}`;
 
-  const components = dataTable
-    .filter(row => row.type && !["ISOGEN-FILES","UNITS-BORE","UNITS-CO-ORDS",
-      "UNITS-WEIGHT","UNITS-BOLT-DIA","UNITS-BOLT-LENGTH",
-      "PIPELINE-REFERENCE","MESSAGE-SQUARE"].includes(row.type.toUpperCase()))
-    .map(row => ({
-      ...row,
-      entryPoint: getEntryPoint(row),
-      exitPoint: getExitPoint(row),
-      branchExitPoint: getBranchExitPoint(row),
-    }));
+  const components = filterToComponents(dataTable);
 
   const entryIndex = new Map();
   for (const comp of components) {
@@ -57,10 +131,10 @@ export function buildConnectivityGraph(dataTable, config) {
   }
 
   const terminals = components.filter(c =>
-    !hasIncoming.has(c._rowIndex) && c.type !== "SUPPORT"
+    !hasIncoming.has(c._rowIndex) && (c.type || "").toUpperCase() !== "SUPPORT"
   );
 
-  return { components, edges, branchEdges, terminals, entryIndex };
+  return { components, edges, branchEdges, terminals, entryIndex, strategy: "spatial" };
 }
 
 export function getEntryPoint(row) {

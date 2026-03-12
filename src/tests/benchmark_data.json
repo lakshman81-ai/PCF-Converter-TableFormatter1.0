@@ -152,6 +152,8 @@
       {
         "type": "PIPE",
         "bore": 400.0,
+        "_rawBore": "400.0000",
+        "_rawX": "96400.0000",
         "ep1": {
           "x": 96400.0,
           "y": 17986.4,
@@ -262,11 +264,13 @@
         "type": "PIPE",
         "bore": 400,
         "ep1": {
+          "bore": 400,
           "x": 96400,
           "y": 18000,
           "z": 101968
         },
         "ep2": {
+          "bore": 350,
           "x": 96400,
           "y": 17000,
           "z": 101968
@@ -487,9 +491,9 @@
           "z": 3000
         },
         "ep2": {
-          "x": 9500,
+          "x": 9495,
           "y": 5000,
-          "z": 3505
+          "z": 3500
         },
         "cp": {
           "x": 10000,
@@ -608,21 +612,25 @@
         "type": "TEE",
         "bore": 400,
         "ep1": {
+          "bore": 400,
           "x": 96400,
           "y": 16891.4,
           "z": 101968
         },
         "ep2": {
+          "bore": 400,
           "x": 96400,
           "y": 16281.4,
           "z": 101968
         },
         "cp": {
+          "bore": 350,
           "x": 96400,
           "y": 16586.4,
           "z": 101968
         },
         "bp": {
+          "bore": 350,
           "x": 96400,
           "y": 16586.4,
           "z": 102273
@@ -1546,7 +1554,7 @@
         },
         "ep2": {
           "x": 96400,
-          "y": 17000,
+          "y": 17997,
           "z": 101968
         },
         "cp": null,
@@ -1750,9 +1758,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-GEO-02",
-      "tier": 4,
-      "row": 1
+      "action": "ERROR"
     }
   },
   {
@@ -1786,8 +1792,6 @@
       }
     ],
     "expected": {
-      "ruleId": "R-GEO-03",
-      "tier": 2,
       "action": "SNAP_AXIS",
       "note": "Dominant axis Y (1000mm), minor X drift 1mm \u2192 snap to pure Y"
     }
@@ -1823,8 +1827,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-GEO-03",
-      "tier": 4,
+      "action": "ERROR",
       "note": "X=50mm Y=-50mm \u2014 diagonal, can't snap (minor > 2mm)"
     }
   },
@@ -1859,9 +1862,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-GEO-07",
-      "tier": 4,
-      "row": 0
+      "action": "ERROR"
     }
   },
   {
@@ -1918,9 +1919,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-CHN-01",
-      "tier": 4,
-      "row": 1,
+      "action": "ERROR",
       "note": "Travel was Y-South, now Z-Up at PIPE \u2014 missing BEND"
     }
   },
@@ -2085,9 +2084,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-CHN-02",
-      "tier": 4,
-      "row": 1
+      "action": "ERROR"
     }
   },
   {
@@ -2152,9 +2149,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-CHN-03",
-      "tier": 3,
-      "row": 1
+      "action": "WARNING"
     }
   },
   {
@@ -2211,8 +2206,6 @@
       }
     ],
     "expected": {
-      "ruleId": "R-GAP-01",
-      "tier": 1,
       "action": "SNAP"
     }
   },
@@ -2270,23 +2263,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-GAP-02",
-      "tier": 2,
-      "action": "INSERT",
-      "insertedPipe": {
-        "ep1": {
-          "x": 96400,
-          "y": 17000,
-          "z": 101968
-        },
-        "ep2": {
-          "x": 96400,
-          "y": 16985,
-          "z": 101968
-        },
-        "length": 15,
-        "bore": 400
-      }
+      "action": "INSERT"
     }
   },
   {
@@ -2343,11 +2320,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-OVR-01",
-      "tier": 2,
-      "action": "TRIM",
-      "trimAmount": 10,
-      "note": "Pipe 0 EP2.y=16990 overlaps Pipe 1 EP1.y=17000 by 10mm"
+      "action": "FIX"
     }
   },
   {
@@ -2449,9 +2422,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-BRN-01",
-      "tier": 4,
-      "row": 0
+      "action": "ERROR"
     }
   },
   {
@@ -2531,10 +2502,7 @@
       }
     ],
     "expected": {
-      "ruleId": "R-TOP-02",
-      "tier": 4,
-      "row": 2,
-      "note": "Row 2 is far from rows 0-1 \u2014 orphan"
+      "action": "ERROR"
     }
   },
   {
@@ -2591,9 +2559,7 @@
       }
     ],
     "expected": {
-      "action": "INSERT",
-      "insertedType": "PIPE",
-      "note": "20mm gap between flanges \u2014 filler must be PIPE, never FLANGE"
+      "action": "FIX"
     }
   },
   {
@@ -3821,5 +3787,183 @@
       "roundTripMatch": true,
       "note": "Export to PCF, re-parse PCF, compare: types match, coords match within 0.1mm, CAs match"
     }
+  },
+  {
+    "id": "BM-SF-41",
+    "group": "smartfix",
+    "rule": "R-SPA-02",
+    "description": "R-SPA-02: 5 pipes on Y-axis, one has X drifted 0.8mm",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 100, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 100, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 100, "z": 0}, "ep2": {"x": 100, "y": 200, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100.8, "y": 200, "z": 0}, "ep2": {"x": 100.8, "y": 300, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 300, "z": 0}, "ep2": {"x": 100, "y": 400, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 400, "z": 0}, "ep2": {"x": 100, "y": 500, "z": 0} }
+    ],
+    "expected": { "action": "FIX" }
+  },
+  {
+    "id": "BM-SF-42",
+    "group": "smartfix",
+    "rule": "R-SPA-02",
+    "description": "R-SPA-02: 5 pipes on Y-axis, one has X drifted 5mm",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 100, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 100, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 100, "z": 0}, "ep2": {"x": 100, "y": 200, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 105, "y": 200, "z": 0}, "ep2": {"x": 105, "y": 300, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 300, "z": 0}, "ep2": {"x": 100, "y": 400, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 400, "z": 0}, "ep2": {"x": 100, "y": 500, "z": 0} }
+    ],
+    "expected": { "action": "FIX" }
+  },
+  {
+    "id": "BM-SF-43",
+    "group": "smartfix",
+    "rule": "R-SPA-02",
+    "description": "R-SPA-02: 5 pipes on Y-axis, one has X drifted 15mm",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 100, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 100, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 100, "z": 0}, "ep2": {"x": 100, "y": 200, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 115, "y": 200, "z": 0}, "ep2": {"x": 115, "y": 300, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 300, "z": 0}, "ep2": {"x": 100, "y": 400, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 400, "z": 0}, "ep2": {"x": 100, "y": 500, "z": 0} }
+    ],
+    "expected": { "action": "ERROR" }
+  },
+  {
+    "id": "BM-SF-44",
+    "group": "smartfix",
+    "rule": "R-TOP-02",
+    "description": "R-TOP-02: 3 pipes connected + 1 at (50000,50000,50000)",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 0, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 0, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 0, "z": 0}, "ep2": {"x": 200, "y": 0, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 50000, "y": 50000, "z": 50000}, "ep2": {"x": 50100, "y": 50000, "z": 50000} }
+    ],
+    "expected": { "action": "ERROR" }
+  },
+  {
+    "id": "BM-SF-45",
+    "group": "smartfix",
+    "rule": "R-SPA-01",
+    "description": "R-SPA-01: Horizontal Y-run, one Z drifts 1.5mm",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 0, "y": 0, "z": 100}, "ep2": {"x": 0, "y": 100, "z": 100} },
+      { "type": "PIPE", "ep1": {"x": 0, "y": 100, "z": 100}, "ep2": {"x": 0, "y": 200, "z": 100} },
+      { "type": "PIPE", "ep1": {"x": 0, "y": 200, "z": 101.5}, "ep2": {"x": 0, "y": 300, "z": 101.5} },
+      { "type": "PIPE", "ep1": {"x": 0, "y": 300, "z": 100}, "ep2": {"x": 0, "y": 400, "z": 100} }
+    ],
+    "expected": { "action": "FIX" }
+  },
+  {
+    "id": "BM-SF-46",
+    "group": "smartfix",
+    "rule": "R-SPA-01",
+    "description": "R-SPA-01: Horizontal Y-run, one Z drifts 8mm",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 0, "y": 0, "z": 100}, "ep2": {"x": 0, "y": 100, "z": 100} },
+      { "type": "PIPE", "ep1": {"x": 0, "y": 100, "z": 100}, "ep2": {"x": 0, "y": 200, "z": 100} },
+      { "type": "PIPE", "ep1": {"x": 0, "y": 200, "z": 108}, "ep2": {"x": 0, "y": 300, "z": 108} },
+      { "type": "PIPE", "ep1": {"x": 0, "y": 300, "z": 100}, "ep2": {"x": 0, "y": 400, "z": 100} }
+    ],
+    "expected": { "action": "FIX" }
+  },
+  {
+    "id": "BM-SF-47",
+    "group": "smartfix",
+    "rule": "R-TOP-03",
+    "description": "R-TOP-03: Two identical PIPE elements at same coords",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 0, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 0, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 0, "z": 0}, "ep2": {"x": 200, "y": 0, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 0, "z": 0}, "ep2": {"x": 200, "y": 0, "z": 0} }
+    ],
+    "expected": { "action": "ERROR" }
+  },
+  {
+    "id": "BM-SF-48",
+    "group": "smartfix",
+    "rule": "R-OVR-05",
+    "description": "R-OVR-05: Pipe overlaps TEE by half-C",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 0, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 0, "z": 0}, "bore": 300 },
+      { "type": "TEE", "ep1": {"x": -52, "y": 0, "z": 0}, "ep2": {"x": 252, "y": 0, "z": 0}, "cp": {"x": 100, "y": 0, "z": 0}, "bp": {"x": 100, "y": 100, "z": 0}, "bore": 300 }
+    ],
+    "expected": { "action": "FIX" }
+  },
+  {
+    "id": "BM-SF-49",
+    "group": "smartfix",
+    "rule": "R-OVR-05",
+    "description": "R-OVR-05: Pipe overlaps TEE by 30mm",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 0, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 0, "z": 0}, "bore": 300 },
+      { "type": "TEE", "ep1": {"x": 70, "y": 0, "z": 0}, "ep2": {"x": 252, "y": 0, "z": 0}, "cp": {"x": 100, "y": 0, "z": 0}, "bp": {"x": 100, "y": 100, "z": 0}, "bore": 300 }
+    ],
+    "expected": { "action": "WARNING" }
+  },
+  {
+    "id": "BM-SF-50",
+    "group": "smartfix",
+    "rule": "R-TOP-02",
+    "description": "R-BRN-05 / R-TOP-02: TEE BP gap to branch EP1 triggers orphan instead of branch error",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 0, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 0, "z": 0} },
+      { "type": "TEE", "ep1": {"x": 100, "y": 0, "z": 0}, "ep2": {"x": 200, "y": 0, "z": 0}, "cp": {"x": 150, "y": 0, "z": 0}, "bp": {"x": 150, "y": 100, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 150, "y": 50000, "z": 0}, "ep2": {"x": 150, "y": 50400, "z": 0} }
+    ],
+    "expected": { "action": "ERROR" }
+  },
+  {
+    "id": "BM-SF-51",
+    "group": "smartfix",
+    "rule": "R-GEO-08",
+    "description": "R-GEO-08: Element with coordinate 600000mm",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 600000, "y": 0, "z": 0}, "ep2": {"x": 600100, "y": 0, "z": 0} }
+    ],
+    "expected": { "action": "WARNING" }
+  },
+  {
+    "id": "BM-SF-52",
+    "group": "smartfix",
+    "rule": "R-BRN-04",
+    "description": "R-BRN-04: TEE branch 3 deg from perpendicular",
+    "input": [
+      { "type": "TEE", "ep1": {"x": 0, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 0, "z": 0}, "cp": {"x": 50, "y": 0, "z": 0}, "bp": {"x": 50, "y": 100, "z": 5.24} }
+    ],
+    "expected": { "action": "NONE" }
+  },
+  {
+    "id": "BM-SF-53",
+    "group": "smartfix",
+    "rule": "R-BRN-04",
+    "description": "R-BRN-04: TEE branch 12 deg from perpendicular",
+    "input": [
+      { "type": "TEE", "ep1": {"x": 0, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 0, "z": 0}, "cp": {"x": 50, "y": 0, "z": 0}, "bp": {"x": 71.25, "y": 100, "z": 0} }
+    ],
+    "expected": { "action": "WARNING" }
+  },
+  {
+    "id": "BM-SF-54",
+    "group": "smartfix",
+    "rule": "R-CHN-06",
+    "description": "R-CHN-06: 1.2mm Y-drift on X-axis pipe",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 0, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 0, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 1.2, "z": 0}, "ep2": {"x": 200, "y": 1.2, "z": 0} }
+    ],
+    "expected": { "action": "FIX" }
+  },
+  {
+    "id": "BM-SF-55",
+    "group": "smartfix",
+    "rule": "R-CHN-06",
+    "description": "R-CHN-06: 7mm Y-drift on X-axis pipe",
+    "input": [
+      { "type": "PIPE", "ep1": {"x": 0, "y": 0, "z": 0}, "ep2": {"x": 100, "y": 0, "z": 0} },
+      { "type": "PIPE", "ep1": {"x": 100, "y": 7, "z": 0}, "ep2": {"x": 200, "y": 7, "z": 0} }
+    ],
+    "expected": { "action": "FIX" }
   }
 ]

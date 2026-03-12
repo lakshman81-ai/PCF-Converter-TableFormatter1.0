@@ -5,6 +5,8 @@ const DEFAULT_CONFIG = {
   decimals: 4,
   angleFormat: "degrees",
   crlfMode: true,
+  autoMultiPassMode: false, // Overall toggle
+  operatingMode: "Auto", // Auto, Sequential, Non-Sequential
   pte: {
     sequentialData: true,
     lineKeyEnabled: false,

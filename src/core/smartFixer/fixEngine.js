@@ -15,14 +15,18 @@ export function applyFixes(dataTable, chains, config, log) {
     for (const link of chain) {
       const elem = link.element;
 
+      // If AutoMultiPassMode is ON, only apply fixes explicitly approved by the user
+      // If OFF, apply all Tier 1 and 2 fixes.
+      const isApproved = config.autoMultiPassMode ? elem._fixApproved === true : elem._proposedFix?.tier <= 2;
+
       // DELETE fixes
-      if (elem._proposedFix?.type === "DELETE" && elem._proposedFix.tier <= 2) {
+      if (elem._proposedFix?.type === "DELETE" && isApproved) {
         deleteRows.add(elem._rowIndex);
         applied.push({ ruleId: elem._proposedFix.ruleId, row: elem._rowIndex, action: "DELETE" });
       }
 
       // SNAP_AXIS fixes
-      if (elem._proposedFix?.type === "SNAP_AXIS" && elem._proposedFix.tier <= 2) {
+      if (elem._proposedFix?.type === "SNAP_AXIS" && isApproved) {
         snapToSingleAxis(elem, elem._proposedFix.dominantAxis);
         markModified(elem, "ep1", `SmartFix:${elem._proposedFix.ruleId}`);
         markModified(elem, "ep2", `SmartFix:${elem._proposedFix.ruleId}`);
@@ -31,7 +35,8 @@ export function applyFixes(dataTable, chains, config, log) {
       }
 
       // Gap/Overlap fixes
-      if (link.fixAction && link.fixAction.tier <= 2) {
+      const isGapApproved = config.autoMultiPassMode ? elem._fixApproved === true : link.fixAction?.tier <= 2;
+      if (link.fixAction && isGapApproved) {
         const fix = link.fixAction;
 
         if (fix.type === "SNAP") {

@@ -8,9 +8,14 @@ import { detectElementAxis, detectBranchAxis, detectBranchDirection, getElementV
 import { getEntryPoint, getExitPoint } from './graphBuilder';
 import { logRuleExecution } from '../ruleRegistry';
 
+import { detectDuplicates, applyRSPA02, detectOrphans, checkRBRN05 } from './rules';
+
 export function walkAllChains(graph, config, log) {
   const visited = new Set();
   const allChains = [];
+
+  // R-TOP-03: Duplicate Element Detection (pre-walk cleanup)
+  detectDuplicates(graph.components, config, log);
 
   for (const terminal of graph.terminals) {
     if (visited.has(terminal._rowIndex)) continue;
@@ -19,19 +24,28 @@ export function walkAllChains(graph, config, log) {
     if (chain.length > 0) allChains.push(chain);
   }
 
-  const orphans = graph.components.filter(c =>
-    !visited.has(c._rowIndex) && c.type !== "SUPPORT"
-  );
+  // R-TOP-02: Check for chains of length 1 that represent completely disconnected orphan elements
+  // We also check for completely unvisited elements (which would be orphans too)
+  const unvisitedOrphans = detectOrphans(graph.components, visited, log);
 
-  for (const orphan of orphans) {
-    logRuleExecution("R-TOP-02", orphan._rowIndex);
-    log.push({
-      type: "Error", ruleId: "R-TOP-02", tier: 4, row: orphan._rowIndex,
-      message: `ERROR [R-TOP-02]: Orphan: ${orphan.type} (Row ${orphan._rowIndex}) not connected to any chain.`
-    });
+  // A terminal that forms a 1-element chain and is disconnected from everything else is also an orphan
+  const chainedOrphans = [];
+  for (const chain of allChains) {
+    if (chain.length === 1) {
+        const orphan = chain[0].element;
+        if ((orphan.type || "").toUpperCase() !== "SUPPORT") {
+            logRuleExecution("R-TOP-02", orphan._rowIndex);
+            log.push({ type: "Error", ruleId: "R-TOP-02", tier: 4, row: orphan._rowIndex,
+              message: `ERROR [R-TOP-02 T4]: ${orphan.type} (Row ${orphan._rowIndex}) is orphaned — isolated single-element chain.` });
+            chainedOrphans.push(orphan);
+        }
+    }
   }
 
-  return { chains: allChains, orphans };
+  // Post-walk coordinate cleanup
+  applyRSPA02(allChains, config, log);
+
+  return { chains: allChains, orphans: [...unvisitedOrphans, ...chainedOrphans] };
 }
 
 function createInitialContext(startElement, chainIndex) {
@@ -128,6 +142,9 @@ function walkChain(startElement, graph, context, visited, config, log) {
         };
         const branchChain = walkChain(branchStart, graph, branchCtx, visited, config, log);
         chain[chain.length - 1].branchChain = branchChain;
+
+        // R-BRN-05: Validate branch connection
+        checkRBRN05(current, branchChain, config, log);
       }
     }
 
