@@ -5,7 +5,6 @@ import { DebugTab } from './components/DebugTab';
 import { ConfigTab } from './components/ConfigTab';
 import { OutputTab } from './components/OutputTab';
 import { PreviewModal } from './components/PreviewModal';
-import { runBasicFixes, runValidation } from './core/validator';
 
 function App() {
   const { state, dispatch } = useAppContext();
@@ -158,56 +157,6 @@ function App() {
               }}
             >
               Export PCF ↓
-            </button>
-            <button
-              className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
-              disabled={!state.dataTable || state.dataTable.length === 0}
-              onClick={() => {
-                 let logs = [];
-                 let fixedTable = runBasicFixes(state.dataTable, state.config, logs);
-                 let vResults = runValidation(fixedTable, state.config, logs);
-                 dispatch({ type: 'SET_DATA_TABLE', payload: fixedTable });
-                 // Usually dispatch logs too, but keeping simple for now
-                 alert(`Validation ran. Found ${vResults.length} issues.`);
-              }}
-            >
-              Run Validator ▶
-            </button>
-            <button
-              className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
-              disabled={!state.dataTable || state.dataTable.length === 0 || state.smartFix.status === "running"}
-              onClick={async () => {
-                dispatch({ type: "SET_SMART_FIX_STATUS", payload: "running" });
-                const { runSmartFix } = await import('./core/smartFixer');
-                let logs = [];
-                const result = runSmartFix(state.dataTable, state.config, logs);
-                dispatch({ type: 'SET_DATA_TABLE', payload: result.previewedTable });
-                dispatch({ type: "SMART_FIX_COMPLETE", payload: result });
-              }}
-            >
-              {state.smartFix.status === "running" ? "Analyzing..." : "Smart Fix 🔧"}
-            </button>
-            <button
-              className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-50"
-              disabled={state.smartFix.status !== "previewing"}
-              onClick={async () => {
-                dispatch({ type: "SET_SMART_FIX_STATUS", payload: "applying" });
-                const { executeFixes } = await import('./core/smartFixer');
-                let logs = [];
-
-                // 1. Apply Tier 1 & 2 fixes
-                const fixResult = executeFixes(state.dataTable, state.smartFix.chains, state.config, logs);
-
-                // 2. Re-run Steps 5-13 (Basic fixer handles derived fields right now)
-                const recalcTable = runBasicFixes(fixResult.updatedTable, state.config, logs);
-                const finalValidation = runValidation(recalcTable, state.config, logs);
-
-                dispatch({ type: 'SET_DATA_TABLE', payload: recalcTable });
-                dispatch({ type: 'SET_SMART_FIX_STATUS', payload: "applied" });
-                alert(`Applied ${fixResult.applied.length} fixes. Re-validation found ${finalValidation.length} remaining issues.`);
-              }}
-            >
-              {state.smartFix.status === "applying" ? "Applying..." : "Apply Fixes ✓"}
             </button>
          </div>
       </footer>

@@ -1,5 +1,3 @@
-import { fuzzyMatchHeader } from '../../utils/fuzzy';
-
 /**
  * POINT CSV PARSER (Initial Ingestion)
  * Implementation of PART 3 of WI-PCF-002 Rev.0
@@ -20,58 +18,55 @@ const POINT_ALIASES = {
   skey: ["SKEY", "Skey", "Component Key"]
 };
 
-export function parsePointCSV(parsedData, config) {
-  if (!parsedData || parsedData.length < 2) return [];
+import { runPTEConversion } from '../pte/index.js';
 
-  const headers = parsedData[0];
-  const rows = parsedData.slice(1);
+export function parsePointCSV(firstRows, columnMap, config) {
+  if (!firstRows || firstRows.length === 0) return [];
 
-  // Map columns
-  const colMap = {};
-  for (const [key, aliases] of Object.entries(POINT_ALIASES)) {
-    const aliasObj = {};
-    aliasObj[key] = aliases;
-    const colIdx = headers.findIndex(h => fuzzyMatchHeader(h, aliasObj) === key);
-    if (colIdx !== -1) colMap[key] = colIdx;
-  }
-
-  // Apply lineKey override from config if provided
-  if (config?.pte?.lineKeyEnabled && config?.pte?.lineKeyColumn) {
-      const colIdx = headers.findIndex(h => h.trim() === config.pte.lineKeyColumn);
-      if (colIdx !== -1) colMap.lineKey = colIdx;
-  }
+  // Helper to extract value using the columnMap
+  const getVal = (row, expectedCol) => {
+    // Find the original header that was mapped to 'expectedCol'
+    const origHeader = Object.keys(columnMap).find(h => columnMap[h] === expectedCol);
+    return origHeader ? row[origHeader] : null;
+  };
 
   const intermediateRows = [];
 
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row.some(cell => cell)) continue;
+  for (let i = 0; i < firstRows.length; i++) {
+    const row = firstRows[i];
 
-    const east = parseFloat(row[colMap.east]);
-    const north = parseFloat(row[colMap.north]);
-    const up = parseFloat(row[colMap.up]);
+    const east = parseFloat(getVal(row, 'East'));
+    const north = parseFloat(getVal(row, 'North'));
+    const up = parseFloat(getVal(row, 'Up'));
 
-    // Parse Bore
-    const boreStr = row[colMap.bore];
-    const bore = parseBore(boreStr);
+    const obj = {
+      Sequence: getVal(row, 'Sequence') || i + 1,
+      Type: (getVal(row, 'Type') || "UNKNOWN").toUpperCase(),
+      RefNo: getVal(row, 'RefNo') || null,
+      Point: parseInt(getVal(row, 'Point')),
+      PPoint: parseInt(getVal(row, 'PPoint')),
+      Line_Key: getVal(row, 'Line_Key') || null,
+      East: isNaN(east) ? null : east,
+      North: isNaN(north) ? null : north,
+      Up: isNaN(up) ? null : up,
+      Bore: parseBore(getVal(row, 'Bore')) || null,
+      Skey: getVal(row, 'SKEY') || null,
 
-    const pointRow = {
-      _rowIndex: i + 1,
-      Sequence: row[colMap.seqNo] || (i + 1).toString(),
-      Type: row[colMap.type] || "UNKNOWN",
-      RefNo: row[colMap.refNo] || null,
-      Point: row[colMap.point] ? parseInt(row[colMap.point], 10) : null,
-      PPoint: row[colMap.ppoint] ? parseInt(row[colMap.ppoint], 10) : null,
-      Line_Key: row[colMap.lineKey] || null,
-      coord: (!isNaN(east) && !isNaN(north) && !isNaN(up)) ? { x: east, y: north, z: up } : null,
-      bore: bore,
-      skey: row[colMap.skey] || null,
+      coord: null,
+
+      // Preserve full row for CA/support fallback
+      _raw: row
     };
 
-    intermediateRows.push(pointRow);
+    if (obj.East !== null && obj.North !== null && obj.Up !== null) {
+      obj.coord = { x: obj.East, y: obj.North, z: obj.Up };
+    }
+
+    intermediateRows.push(obj);
   }
 
-  return intermediateRows;
+  // Then immediately run PTE conversion
+  return runPTEConversion(intermediateRows, config, []);
 }
 
 function parseBore(boreStr) {

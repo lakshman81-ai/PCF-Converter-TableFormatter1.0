@@ -29,9 +29,9 @@ export function DevTab() {
   }, []);
 
   const rules = Object.entries(RULE_REGISTRY);
-  const implemented = rules.filter(([_, r]) => r.implemented);
-  const executed = rules.filter(([_, r]) => (r.executionCount || 0) > 0);
-  const missing = rules.filter(([_, r]) => !r.implemented);
+  const implemented = rules.filter(([, r]) => r.implemented);
+  const executed = rules.filter(([, r]) => (r.executionCount || 0) > 0);
+  const missing = rules.filter(([, r]) => !r.implemented);
 
   return (
     <div className="p-4 bg-white shadow rounded flex flex-col h-full text-sm">

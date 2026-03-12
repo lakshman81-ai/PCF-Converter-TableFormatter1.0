@@ -1,13 +1,36 @@
 import React from 'react';
 import { useAppContext } from '../core/state';
 
+import { useState, useEffect } from 'react';
+import { fuzzyMatchHeader } from '../utils/fuzzy';
+
 export function PreviewModal() {
   const { state, dispatch } = useAppContext();
+  const [columnMap, setColumnMap] = useState({});
+
+  const { file, detected, headers, firstRows, text } = state.previewModal || {};
+  const expectedType = state.inputType;
+
+  useEffect(() => {
+    if (state.previewModal?.open && headers && headers.length > 0 && expectedType !== 'pcf_text') {
+      const initialMap = {};
+      const aliases = state.config.columnAliases || {};
+      headers.forEach(h => {
+        const match = fuzzyMatchHeader(h, aliases);
+        if (match) initialMap[h] = match;
+      });
+      setColumnMap(initialMap);
+    }
+  }, [state.previewModal?.open, headers, expectedType, state.config.columnAliases]);
 
   if (!state.previewModal || !state.previewModal.open) return null;
 
-  const { file, detected, headers, firstRows, text } = state.previewModal;
-  const expectedType = state.inputType;
+  const expectedColumns = expectedType === 'point_csv' ? [
+    'Sequence', 'Type', 'Point', 'PPoint', 'Bore', 'East', 'North', 'Up', 'RefNo', 'Line_Key'
+  ] : expectedType === 'element_csv' ? [
+    'CSV SEQ NO', 'PIPELINE', 'COMPONENT', 'REF NO.', 'BORE', 'EP1 COORDS', 'EP2 COORDS', 'CP COORDS', 'BP COORDS'
+  ] : [];
+
 
   const handleConfirm = async () => {
     // Hide modal
@@ -68,15 +91,17 @@ export function PreviewModal() {
             )}
           </div>
 
-          {headers && headers.length > 0 && (
+          {headers && headers.length > 0 && expectedType !== 'pcf_text' && (
             <div className="mb-6">
-              <h3 className="font-bold border-b pb-1 mb-2">Column Mapping (Preview)</h3>
-              <p className="text-gray-500 text-xs mb-2">Internal parser maps automatically. First 5 mapped columns:</p>
-              <div className="flex gap-2 flex-wrap">
-                {headers.slice(0, 10).map((h, i) => (
-                  <span key={i} className="bg-gray-100 px-2 py-1 rounded border text-xs">{h}</span>
-                ))}
-                {headers.length > 10 && <span className="text-xs text-gray-500">...and {headers.length - 10} more</span>}
+              <h3 className="font-bold border-b pb-1 mb-2">Expected columns</h3>
+              <div className="overflow-x-auto pb-2 border rounded border-gray-300">
+                <div className="flex p-2 gap-2 w-max">
+                   {expectedColumns.map((ec, i) => (
+                     <div key={i} className="border rounded bg-gray-50 p-2 text-center text-xs min-w-[100px] shadow-sm font-semibold whitespace-nowrap">
+                       {ec}
+                     </div>
+                   ))}
+                </div>
               </div>
             </div>
           )}
@@ -94,7 +119,19 @@ export function PreviewModal() {
                     <thead className="bg-gray-100">
                       <tr>
                         {headers.map((h, i) => (
-                          <th key={i} className="p-1 border truncate max-w-[150px]">{h}</th>
+                          <th key={i} className="p-2 border align-top min-w-[120px] max-w-[200px]" style={{width: `${100/headers.length}%`}}>
+                             <div className="font-bold text-gray-700 truncate mb-1" title={h}>{h}</div>
+                             <select
+                               className="w-full border rounded p-1 text-[10px] bg-white font-sans font-semibold text-blue-600 shadow-sm"
+                               value={columnMap[h] || ""}
+                               onChange={(e) => setColumnMap({...columnMap, [h]: e.target.value})}
+                             >
+                                <option value="">(unmapped)</option>
+                                {expectedColumns.map(ec => (
+                                  <option key={ec} value={ec}>{ec}</option>
+                                ))}
+                             </select>
+                          </th>
                         ))}
                       </tr>
                     </thead>
@@ -102,7 +139,7 @@ export function PreviewModal() {
                       {firstRows.slice(0, 10).map((row, i) => (
                         <tr key={i} className="hover:bg-gray-50">
                           {headers.map((h, j) => (
-                            <td key={j} className="p-1 border truncate max-w-[150px]">{row[h]}</td>
+                            <td key={j} className="p-1 px-2 border truncate max-w-[200px]">{row[h]}</td>
                           ))}
                         </tr>
                       ))}

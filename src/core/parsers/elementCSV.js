@@ -1,6 +1,3 @@
-import { fuzzyMatchHeader } from '../../utils/fuzzy';
-import { validateDataTable } from '../schema';
-
 /**
  * ELEMENT CSV PARSER
  * Implementation of PART 4 of WI-PCF-002 Rev.0
@@ -30,74 +27,60 @@ const ALIASES = {
   brlen: ["BRLEN", "BrLen", "Branch Length", "Branch Len", "Br Len"]
 };
 
-export function parseElementCSV(parsedData) {
-  // `parsedData` is expected to be an array of arrays [ [header1, header2], [val1, val2] ]
-  if (!parsedData || parsedData.length < 2) return [];
-
-  const headers = parsedData[0];
-  const rows = parsedData.slice(1);
-
-  // Map columns to their indices
-  const colMap = {};
-  for (const [key, aliases] of Object.entries(ALIASES)) {
-    const aliasObj = {};
-    aliasObj[key] = aliases;
-
-    // Find the column index
-    const colIdx = headers.findIndex(h => fuzzyMatchHeader(h, aliasObj) === key);
-    if (colIdx !== -1) {
-      colMap[key] = colIdx;
-    }
-  }
+export function parseElementCSV(firstRows, columnMap) {
+  if (!firstRows || firstRows.length === 0) return [];
 
   const dataTable = [];
 
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row.some(cell => cell)) continue; // skip empty rows
+  // Helper to extract value using the columnMap
+  const getVal = (row, expectedCol) => {
+    // Find the original header that was mapped to 'expectedCol'
+    const origHeader = Object.keys(columnMap).find(h => columnMap[h] === expectedCol);
+    return origHeader ? row[origHeader] : null;
+  };
 
-    // Base type is mandatory
-    const type = row[colMap.type] || "UNKNOWN";
+  for (let i = 0; i < firstRows.length; i++) {
+    const row = firstRows[i];
 
-    // Parse Bore
-    const boreStr = row[colMap.bore];
+    const type = getVal(row, 'COMPONENT') || getVal(row, 'Type') || "UNKNOWN";
+
+    const boreStr = getVal(row, 'BORE');
     const bore = parseBore(boreStr);
 
-    // Build Row Object
     const rowObj = {
       _source: "CSV",
       _logTags: [],
       _rowIndex: i + 1,
 
-      csvSeqNo: row[colMap.seqNo] || (i + 1).toString(),
+      csvSeqNo: getVal(row, 'CSV SEQ NO') || getVal(row, 'Sequence') || (i + 1).toString(),
       type: type.toUpperCase(),
-      text: row[colMap.text] || "",
-      pipelineRef: row[colMap.pipelineRef] || "",
-      refNo: row[colMap.refNo] || row[colMap.ca97] || "",
+      text: getVal(row, 'TEXT') || "",
+      pipelineRef: getVal(row, 'PIPELINE') || "",
+      refNo: getVal(row, 'REF NO.') || getVal(row, 'RefNo') || "",
       bore: bore,
 
-      ep1: parseCoordinateCell(row[colMap.ep1]),
-      ep2: parseCoordinateCell(row[colMap.ep2]),
-      cp: parseCoordinateCell(row[colMap.cp]),
-      bp: parseCoordinateCell(row[colMap.bp]),
+      ep1: parseCoordinateCell(getVal(row, 'EP1 COORDS')),
+      ep2: parseCoordinateCell(getVal(row, 'EP2 COORDS')),
+      cp: parseCoordinateCell(getVal(row, 'CP COORDS')),
+      bp: parseCoordinateCell(getVal(row, 'BP COORDS')),
 
-      skey: row[colMap.skey] || "",
+      skey: getVal(row, 'SKEY') || "",
 
-      supportCoor: parseCoordinateCell(row[colMap.supportCoor]),
-      supportName: "", // Derived later or if explicit col added
-      supportGuid: row[colMap.supportGuid] || "",
+      supportCoor: parseCoordinateCell(getVal(row, 'SUPPORT COORDS')),
+      supportName: "",
+      supportGuid: getVal(row, 'SUPPORT GUID') || "",
 
       ca: {
-        1: row[colMap.ca1] || null,
-        2: row[colMap.ca2] || null,
-        3: row[colMap.ca3] || null,
-        4: row[colMap.ca4] || null,
-        8: row[colMap.ca8] || null,
-        97: row[colMap.ca97] || null,
-        98: row[colMap.ca98] || null,
+        1: getVal(row, 'CA1') || null,
+        2: getVal(row, 'CA2') || null,
+        3: getVal(row, 'CA3') || null,
+        4: getVal(row, 'CA4') || null,
+        8: getVal(row, 'CA8') || null,
+        97: getVal(row, 'CA97') || null,
+        98: getVal(row, 'CA98') || null,
       },
 
-      brlen: parseFloat(row[colMap.brlen]) || null,
+      brlen: parseFloat(getVal(row, 'BRLEN')) || null,
     };
 
     // Fallback logic mapping
@@ -108,7 +91,7 @@ export function parseElementCSV(parsedData) {
     dataTable.push(rowObj);
   }
 
-  return validateDataTable(dataTable);
+  return dataTable; // Removed validation step entirely as requested
 }
 
 function parseCoordinateCell(cellText) {

@@ -36,7 +36,13 @@ export function generatePcf(dataTable, config) {
 
     const compType = (row.type || "UNKNOWN").toUpperCase();
 
-    // SUPPORT block logic (no MESSAGE-SQUARE)
+    const msg = row.text || buildMessageSquare(row);
+    if (msg) {
+      lines.push("MESSAGE-SQUARE");
+      lines.push(`    ${msg}`);
+    }
+
+    // SUPPORT block logic
     if (compType === "SUPPORT") {
       lines.push("SUPPORT");
       lines.push(`    CO-ORDS    ${fmtCoord(row.supportCoor, 0, dec)}`);
@@ -48,10 +54,6 @@ export function generatePcf(dataTable, config) {
       continue;
     }
 
-    // MESSAGE-SQUARE for all other components
-    const msg = buildMessageSquare(row);
-    lines.push("MESSAGE-SQUARE");
-    lines.push(`    ${msg}`);
     lines.push(compType);
 
     // GEOMETRY
@@ -110,8 +112,9 @@ export function generatePcf(dataTable, config) {
 }
 
 function fmtCoord(coord, bore, dec) {
-  if (!coord) return `0.${'0'.repeat(dec)} 0.${'0'.repeat(dec)} 0.${'0'.repeat(dec)} ${Math.round(bore || 0)}`;
-  return `${(coord.x || 0).toFixed(dec)} ${(coord.y || 0).toFixed(dec)} ${(coord.z || 0).toFixed(dec)} ${Math.round(bore || 0)}`;
+  const boreStr = Number.isInteger(bore) ? bore.toFixed(dec) : (bore || 0).toFixed(dec);
+  if (!coord) return `0.${'0'.repeat(dec)} 0.${'0'.repeat(dec)} 0.${'0'.repeat(dec)} ${boreStr}`;
+  return `${(coord.x || 0).toFixed(dec)} ${(coord.y || 0).toFixed(dec)} ${(coord.z || 0).toFixed(dec)} ${boreStr}`;
 }
 
 function buildMessageSquare(row) {

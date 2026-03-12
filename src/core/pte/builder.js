@@ -55,7 +55,7 @@ export function assembleElements(groupedRows) {
       if (!elem.bore) elem.bore = parseBore(p2.Bore) || 0;
     }
 
-    if (type === "TEE" || type === "OLET" || type === "BEND") {
+    if (type === "TEE" || type === "OLET" || type === "BEND" || type === "ELBO") {
       if (p0) elem.cp = parseCoord(p0);
       if (p3) {
         elem.bp = parseCoord(p3);

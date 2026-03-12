@@ -13,33 +13,21 @@ const DEFAULT_CONFIG = {
     lineKeyColumn: "Line No",
     refPtPptAvailable: "auto",
   },
-  smartFixer: {
-    connectionTolerance: 25.0,
-    gridSnapResolution: 1.0,
-    microPipeThreshold: 6.0,
-    microFittingThreshold: 1.0,
-    negligibleGap: 1.0,
-    autoFillMaxGap: 25.0,
-    reviewGapMax: 100.0,
-    autoTrimMaxOverlap: 25.0,
-    silentSnapThreshold: 2.0,
-    warnSnapThreshold: 10.0,
-    autoDeleteFoldbackMax: 25.0,
-    offAxisThreshold: 0.5,
-    diagonalMinorThreshold: 2.0,
-    fittingDimensionTolerance: 0.20,
-    bendRadiusTolerance: 0.05,
-    minTangentMultiplier: 1.0,
-    closureWarningThreshold: 5.0,
-    closureErrorThreshold: 50.0,
-    maxBoreForInchDetection: 48,
-    oletMaxRatioWarning: 0.5,
-    oletMaxRatioError: 0.8,
-    branchPerpendicularityWarn: 5.0,
-    branchPerpendicularityError: 15.0,
-    horizontalElevationDrift: 2.0,
-    minPipeRatio: 0.10,
-    noSupportAlertLength: 10000.0,
+  columnAliases: {
+    'East': ['East', 'X Coordinate', 'X'],
+    'North': ['North', 'Y Coordinate', 'Y'],
+    'Up': ['Up', 'Z Coordinate', 'Z'],
+    'Type': ['Type', 'Real_Type', 'Component', 'Comp Type', 'Component Type', 'Fitting', 'Item'],
+    'Point': ['Point'],
+    'PPoint': ['PPoint', 'Port'],
+    'RefNo': ['RefNo', 'Reference', 'Node No'],
+    'Bore': ['Bore', 'Size', 'NB'],
+    'Sequence': ['Sequence', 'Seq', '#'],
+    'Line_Key': ['Line No', 'Pipeline', 'Line_Key', 'Line'],
+    'EP1 COORDS': ['EP1 COORDS', 'EP1', 'Start Point', 'From', 'From Coord', 'Start Coord'],
+    'EP2 COORDS': ['EP2 COORDS', 'EP2', 'End Point', 'To', 'To Coord', 'End Coord'],
+    'CP COORDS': ['CP COORDS', 'CP', 'Center Point', 'Centre Point'],
+    'BP COORDS': ['BP COORDS', 'BP', 'Branch Point']
   }
 };
 
@@ -114,7 +102,9 @@ function reducer(state, action) {
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const AppContext = createContext();
+
 
 export function AppProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -126,6 +116,7 @@ export function AppProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAppContext() {
   return useContext(AppContext);
 }

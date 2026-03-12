@@ -82,36 +82,6 @@ export function ConfigTab() {
           </div>
         </section>
 
-        {/* Smart Fixer */}
-        <section>
-          <h3 className="font-bold text-lg mb-3 text-gray-700 bg-gray-100 p-2 rounded">Smart Fixer Engine</h3>
-          <div className="grid grid-cols-3 gap-4 ml-2">
-            <div>
-              <label className="block text-sm font-semibold mb-1" title="Pipes shorter than this are deleted automatically">Micro Pipe Threshold (mm)</label>
-              <input type="number" step="0.1" className="border p-1 w-full rounded"
-                     value={state.config.smartFixer.microPipeThreshold}
-                     onChange={(e) => handleConfigChange('smartFixer', 'microPipeThreshold', parseFloat(e.target.value))} />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1" title="Gaps up to this size are auto-filled with pipes">Auto-Fill Max Gap (mm)</label>
-              <input type="number" step="0.1" className="border p-1 w-full rounded"
-                     value={state.config.smartFixer.autoFillMaxGap}
-                     onChange={(e) => handleConfigChange('smartFixer', 'autoFillMaxGap', parseFloat(e.target.value))} />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1" title="Overlaps up to this size are auto-trimmed">Auto-Trim Max Overlap (mm)</label>
-              <input type="number" step="0.1" className="border p-1 w-full rounded"
-                     value={state.config.smartFixer.autoTrimMaxOverlap}
-                     onChange={(e) => handleConfigChange('smartFixer', 'autoTrimMaxOverlap', parseFloat(e.target.value))} />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold mb-1" title="Gaps less than this are snapped without warning">Negligible Gap Snap (mm)</label>
-              <input type="number" step="0.1" className="border p-1 w-full rounded"
-                     value={state.config.smartFixer.negligibleGap}
-                     onChange={(e) => handleConfigChange('smartFixer', 'negligibleGap', parseFloat(e.target.value))} />
-            </div>
-          </div>
-        </section>
       </div>
 
       <div className="mt-8 text-right text-xs text-gray-400">

@@ -4,7 +4,6 @@ import { downloadSessionLog } from '../utils/logger';
 
 export function DebugTab() {
   const { state } = useAppContext();
-  const [filter, setFilter] = useState('All');
 
   // Add some tally info
   const tally = {
@@ -116,7 +115,7 @@ function LogWindow({ title, logs, defaultFilter = "All", className = "" }) {
       <div className="flex-grow overflow-auto bg-gray-900 p-2 text-xs font-mono">
         {filteredLogs.map((entry, idx) => (
           <div key={idx} className="mb-1 flex">
-             <span className="text-gray-500 w-12 flex-shrink-0">{new Date(entry.timestamp || Date.now()).toLocaleTimeString().slice(0,5)}</span>
+             <span className="text-gray-500 w-12 flex-shrink-0">{new Date(entry.timestamp || 0).toLocaleTimeString().slice(0,5)}</span>
              <span className={`w-14 flex-shrink-0 font-bold ${
                 entry.type === "Error" ? "text-red-400" :
                 entry.type === "Warning" ? "text-yellow-400" :
