@@ -3,9 +3,14 @@
  * Implementation of PCF Syntax Master v1.0
  */
 
+import { enforceDataTableSchema } from '../schema.js';
+
 export function generatePcf(dataTable, config) {
   const lines = [];
   const dec = config.decimals === 1 ? 1 : 4;
+
+  // Enforce rigid schema before export
+  const validatedTable = enforceDataTableSchema(dataTable);
 
   let globalPipelineRef = config.pipelineRef;
   if (!globalPipelineRef) {
@@ -25,7 +30,7 @@ export function generatePcf(dataTable, config) {
   lines.push("    AREA A1");
   lines.push("");
 
-  for (const row of dataTable) {
+  for (const row of validatedTable) {
     if (["ISOGEN-FILES", "UNITS-BORE", "UNITS-CO-ORDS", "UNITS-WEIGHT", "UNITS-BOLT-DIA", "UNITS-BOLT-LENGTH", "PROJECT-IDENTIFIER", "AREA"].includes(row.type)) {
       continue; // Skip header lines parsed from source
     }

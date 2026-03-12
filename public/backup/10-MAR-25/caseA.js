@@ -9,9 +9,6 @@ export function enrichWithRealType(rows) {
   for (let i = 0; i < result.length; i++) {
     const row = result[i];
 
-    // Default Real_Type to Type if not mapped below
-    row.Real_Type = row.Type;
-
     if (row.Point === 1) {
       row.Real_Type = row.Type;
     }
@@ -21,13 +18,12 @@ export function enrichWithRealType(rows) {
     }
     else if (row.Point === 0) {
       row.Real_Type = row.Type;
-      if (row.Type && ["ANCI", "RSTR", "SUPPORT"].includes(row.Type.toUpperCase())) {
+      if (["ANCI", "RSTR", "SUPPORT"].includes(row.Type.toUpperCase())) {
         const next = findNextNonZeroPoint(result, i);
         row.Real_Type = next ? next.Type : row.Type;
       }
     }
     else if (row.Point === 3) {
-      // Ensure branch point (Point 3) maps correctly
       row.Real_Type = row.Type;
     }
   }

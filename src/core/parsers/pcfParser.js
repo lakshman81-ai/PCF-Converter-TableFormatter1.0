@@ -1,5 +1,4 @@
 import { vec } from '../../utils/math';
-import { validateDataTable } from '../schema';
 
 /**
  * PCF TEXT PARSER

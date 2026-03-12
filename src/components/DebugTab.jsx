@@ -4,6 +4,9 @@ import { downloadSessionLog } from '../utils/logger';
 
 export function DebugTab() {
   const { state } = useAppContext();
+  const [activeStage, setActiveStage] = useState(1);
+  const [rowFilter, setRowFilter] = useState('');
+  const [refFilter, setRefFilter] = useState('');
 
   // Add some tally info
   const tally = {
@@ -15,80 +18,81 @@ export function DebugTab() {
     supportCount: state.dataTable.filter(r => r.type === "SUPPORT").length,
   };
 
+  const getStageLogs = (stage) => {
+    return state.log.filter(l => {
+        const matchesStage = l.stage === stage || (!l.stage && stage === 1); // Default unmapped logs to stage 1 for visibility
+        const matchesRow = rowFilter ? String(l.row) === rowFilter || l.message.includes(`Row ${rowFilter}`) || l.message.includes(`Seq ${rowFilter}`) : true;
+        const matchesRef = refFilter ? l.message.includes(refFilter) || (l.tags && l.tags.includes(refFilter)) : true;
+        return matchesStage && matchesRow && matchesRef;
+    });
+  };
+
   return (
     <div className="bg-white p-4 shadow rounded flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
         <h2 className="font-bold text-lg">System Logs & Debug</h2>
-        <button
-          onClick={() => downloadSessionLog(state.log, "Session")}
-          className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-mono border"
-        >
-          ⬇️ Download Session Log (.md)
-        </button>
+        <div className="flex gap-4">
+           <input
+             type="text"
+             placeholder="Filter by Row Index..."
+             className="border rounded px-2 text-sm"
+             value={rowFilter}
+             onChange={(e) => setRowFilter(e.target.value)}
+           />
+           <input
+             type="text"
+             placeholder="Filter by Ref No..."
+             className="border rounded px-2 text-sm"
+             value={refFilter}
+             onChange={(e) => setRefFilter(e.target.value)}
+           />
+           <button
+             onClick={() => downloadSessionLog(state.log, "Session")}
+             className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded text-sm font-mono border"
+           >
+             ⬇️ Download Session Log (.md)
+           </button>
+        </div>
       </div>
 
-      <div className="flex gap-6 mb-6">
-        <div className="w-1/3 bg-gray-50 border rounded p-3">
-          <h3 className="font-bold border-b pb-1 mb-2 text-sm">Component Tally</h3>
-          <ul className="text-xs font-mono space-y-1">
-            <li>Total Elements: {tally.totalRows}</li>
-            <li>PIPE: {tally.pipeCount} ({tally.pipeLengthMeters}m)</li>
-            <li>FLANGE: {tally.flangeCount}</li>
-            <li>VALVE: {tally.valveCount}</li>
-            <li>SUPPORT: {tally.supportCount}</li>
-          </ul>
-        </div>
-
-        {state.smartFix.chainSummary && (
-          <div className="w-1/3 bg-blue-50 border border-blue-200 rounded p-3">
-            <h3 className="font-bold border-b border-blue-200 pb-1 mb-2 text-sm">Smart Fix Summary</h3>
-            <ul className="text-xs font-mono space-y-1">
-              <li>Chains found: {state.smartFix.chainSummary.chainCount}</li>
-              <li>Orphans: {state.smartFix.chainSummary.orphanCount}</li>
-              <li className="text-green-700">Tier 1 fixes: {state.smartFix.chainSummary.tier1}</li>
-              <li className="text-amber-700">Tier 2 fixes: {state.smartFix.chainSummary.tier2}</li>
-              <li className="text-orange-700">Tier 3 warnings: {state.smartFix.chainSummary.tier3}</li>
-              <li className="text-red-700">Tier 4 errors: {state.smartFix.chainSummary.tier4}</li>
+      <div className="flex gap-6 mb-4">
+        <div className="w-full bg-gray-50 border rounded p-3 flex justify-between">
+          <div>
+            <h3 className="font-bold border-b pb-1 mb-2 text-sm">Component Tally</h3>
+            <ul className="text-xs font-mono space-x-4 flex">
+              <li>Total Elements: {tally.totalRows}</li>
+              <li>PIPE: {tally.pipeCount} ({tally.pipeLengthMeters}m)</li>
+              <li>FLANGE: {tally.flangeCount}</li>
+              <li>VALVE: {tally.valveCount}</li>
+              <li>SUPPORT: {tally.supportCount}</li>
             </ul>
           </div>
-        )}
+        </div>
       </div>
 
-      <div className="flex-grow grid grid-cols-2 gap-4 h-full overflow-hidden">
+      <div className="flex border-b mb-4">
+        {[
+          { id: 1, label: "Stage 1: Ingestion & PTE" },
+          { id: 2, label: "Stage 2: Parsing & Population" },
+          { id: 3, label: "Stage 3: Formatting & Validation" },
+          { id: 4, label: "Stage 4: PCF Export" }
+        ].map(stage => (
+           <button
+             key={stage.id}
+             className={`px-4 py-2 font-bold text-sm ${activeStage === stage.id ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-black'}`}
+             onClick={() => setActiveStage(stage.id)}
+           >
+             {stage.label}
+           </button>
+        ))}
+      </div>
 
-        {/* Window 1: Data Table Generation & Basic Fixer Logs */}
+      <div className="flex-grow overflow-hidden flex flex-col">
         <LogWindow
-          title="1. Data Table & Basic Fixes"
-          logs={state.log.filter(l => ["Info", "Calculated", "Mock", "Warning"].includes(l.type) && !l.ruleId?.startsWith("R-") && !l.ruleId?.startsWith("V"))}
+          title={`Logs for Stage ${activeStage}`}
+          logs={getStageLogs(activeStage)}
+          defaultFilter="All"
         />
-
-        {/* Window 2: Validation Results */}
-        <LogWindow
-          title="2. Validator (V1-V20)"
-          logs={state.log.filter(l => l.ruleId?.startsWith("V") || l.message?.includes("Validator"))}
-          defaultFilter="Error"
-        />
-
-        {/* Window 3: Smart Fixer (Engine & Rules) */}
-        <LogWindow
-          title="3. Smart Fixer (R-GEO...R-AGG)"
-          logs={state.log.filter(l => l.ruleId?.startsWith("R-") && !l.ruleId?.startsWith("R-PTE"))}
-          defaultFilter="Error"
-        />
-
-        {/* Window 4: Fix Applied / Data Changes */}
-        <LogWindow
-          title="4. Fixes Applied (Data changes)"
-          logs={state.log.filter(l => ["Fix", "Applied"].includes(l.type) || l.message?.includes("Applied"))}
-        />
-
-        {/* Window 5: PTE & PCF Actions */}
-        <LogWindow
-          title="5. PTE / Export Activity"
-          logs={state.log.filter(l => l.ruleId?.startsWith("R-PTE") || l.message?.includes("PCF") || l.message?.includes("PTE") || l.message?.includes("Export"))}
-          className="col-span-2"
-        />
-
       </div>
     </div>
   );
@@ -99,7 +103,7 @@ function LogWindow({ title, logs, defaultFilter = "All", className = "" }) {
   const filteredLogs = logs.filter(entry => filter === 'All' || entry.type === filter || (filter === 'Applied' && entry.type === 'Fix'));
 
   return (
-    <div className={`flex flex-col border rounded overflow-hidden shadow-sm h-48 md:h-64 lg:h-full ${className}`}>
+    <div className={`flex flex-col border rounded overflow-hidden shadow-sm h-full ${className}`}>
       <div className="bg-gray-100 border-b p-2 flex justify-between items-center">
         <h3 className="font-bold text-sm text-gray-800">{title} ({filteredLogs.length})</h3>
         <select
@@ -124,11 +128,12 @@ function LogWindow({ title, logs, defaultFilter = "All", className = "" }) {
                 "text-gray-300"
              }`}>[{entry.type}]</span>
              {entry.ruleId && <span className="text-gray-400 w-20 flex-shrink-0">{entry.ruleId}</span>}
+             {entry.row && <span className="text-blue-400 w-16 flex-shrink-0">Row:{entry.row}</span>}
              <span className="text-gray-300 ml-1 whitespace-pre-wrap">{entry.message}</span>
           </div>
         ))}
         {filteredLogs.length === 0 && (
-          <div className="text-gray-600 italic mt-4 text-center">No logs...</div>
+          <div className="text-gray-600 italic mt-4 text-center">No logs matching filters...</div>
         )}
       </div>
     </div>

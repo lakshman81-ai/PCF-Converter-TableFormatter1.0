@@ -50,7 +50,7 @@ export function runPTEConversion(intermediateRows, config, log) {
   const headers = Object.keys(intermediateRows[0]);
   const pteCase = selectPTECase(headers, intermediateRows, config);
 
-  log.push({ type: "Info", message: `PTE Conversion started. Detected Case: ${pteCase}` });
+  log.push({ type: "Info", stage: 1, message: `PTE Conversion started. Detected Case: ${pteCase}` });
 
   let resultTable = [];
 

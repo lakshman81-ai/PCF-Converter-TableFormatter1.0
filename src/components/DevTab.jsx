@@ -5,6 +5,7 @@ import { runBenchmarks } from '../tests/benchmarks';
 
 export function DevTab() {
   const { state } = useAppContext();
+  // coverage and executed can be optionally displayed, removed if unused
   const [coverage, setCoverage] = useState({ passed: false, missing: [], total: 0 });
   const [benchmarkResults, setBenchmarkResults] = useState(null);
 
@@ -30,8 +31,8 @@ export function DevTab() {
 
   const rules = Object.entries(RULE_REGISTRY);
   const implemented = rules.filter(([, r]) => r.implemented);
-  const executed = rules.filter(([, r]) => (r.executionCount || 0) > 0);
   const missing = rules.filter(([, r]) => !r.implemented);
+  const executedCount = rules.filter(([, r]) => (r.executionCount || 0) > 0).length;
 
   return (
     <div className="p-4 bg-white shadow rounded flex flex-col h-full text-sm">
@@ -49,7 +50,7 @@ export function DevTab() {
 
         <div className="mb-4">
           <p className="mb-1">
-            <strong>Summary:</strong> {implemented.length}/{rules.length} rules implemented.
+            <strong>Summary:</strong> {implemented.length}/{rules.length} rules implemented. (Passed: {coverage.passed ? 'Yes' : 'No'}, Executed: {executedCount})
             {missing.length > 0 && <span className="text-red-600 font-bold ml-2">⚠️ {missing.length} MISSING</span>}
           </p>
           {missing.length > 0 && (

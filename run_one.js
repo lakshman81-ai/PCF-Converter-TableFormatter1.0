@@ -1,5 +1,6 @@
 import { runBenchmarks } from './src/tests/benchmarks.js';
 
+// eslint-disable-next-line no-undef
 const targetId = process.argv[2];
 const result = runBenchmarks({});
 if (targetId) {

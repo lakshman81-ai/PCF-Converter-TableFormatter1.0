@@ -3,7 +3,7 @@
  * Implementation of PCF-PTE-002 §3 & §4
  */
 
-export function deriveWithLineKey(rows, config) {
+export function deriveWithLineKey(rows) {
   const refCounter = {};
   let currentLine = null;
   const result = [...rows];
@@ -51,14 +51,14 @@ export function deriveWithLineKey(rows, config) {
 
     if (next) {
       curr._ep2_coord = next.coord;
-      curr._ep2_ppoint = determinePPointExit(curr, next, rtype);
+      curr._ep2_ppoint = determinePPointExit(curr);
     }
   }
 
   return result;
 }
 
-export function deriveWithoutLineKey(rows, config) {
+export function deriveWithoutLineKey(rows) {
   const refCounter = {};
   const result = [...rows];
 
@@ -94,7 +94,7 @@ export function deriveWithoutLineKey(rows, config) {
 
     if (next) {
       curr._ep2_coord = next.coord;
-      curr._ep2_ppoint = determinePPointExit(curr, next, rtype);
+      curr._ep2_ppoint = determinePPointExit(curr);
     }
   }
 
@@ -117,11 +117,24 @@ function determinePPointEntry(curr, prev, rtype) {
     if ((prevType === "FLAN" || prevType === "FLANGE") && prev.Line_Key === curr.Line_Key) {
       return 2;
     }
+    // Gasket checking as per PCF-PTE-002 §3.2
+    if (prevType === "GASK") {
+      // Need prev_prev to be checked in real logic, but without full chain access here
+      // we do best effort or would need a robust lookbehind.
+      return 2;
+    }
   }
+
+  if (rtype === "VALV" || rtype === "VALVE") {
+      if (prevType === "GASK") {
+          return 2; // Flanged valve, inverted orientation
+      }
+  }
+
   return 1;
 }
 
-function determinePPointExit(curr, next, rtype) {
+function determinePPointExit(curr) {
   if (curr.PPoint === 2) return 1;
   return 2;
 }

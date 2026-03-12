@@ -125,7 +125,7 @@ export function registerRule(ruleId) {
   }
 }
 
-export function logRuleExecution(ruleId, rowIndex, message) {
+export function logRuleExecution(ruleId) {
   if (RULE_REGISTRY[ruleId]) {
     RULE_REGISTRY[ruleId].executionCount = (RULE_REGISTRY[ruleId].executionCount || 0) + 1;
   }
@@ -133,7 +133,7 @@ export function logRuleExecution(ruleId, rowIndex, message) {
 
 export function verifyAllRulesImplemented() {
   const missing = Object.entries(RULE_REGISTRY)
-    .filter(([id, r]) => !r.implemented)
+    .filter(([, r]) => !r.implemented)
     .map(([id, r]) => `${id}: ${r.name}`);
 
   if (missing.length > 0) {

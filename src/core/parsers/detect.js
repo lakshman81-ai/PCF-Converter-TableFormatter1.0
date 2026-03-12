@@ -18,9 +18,6 @@ export function detectImportType(headers, firstRows, fileExtension) {
     east: ["East", "X Coordinate", "X"],
   };
 
-  const ep1Col = fuzzyMatchHeader("EP1 COORDS", aliases);
-  const ep2Col = fuzzyMatchHeader("EP2 COORDS", aliases);
-
   // Point-based CSV/Excel: has "Point" column with values {0,1,2,3}
   const pointCol = fuzzyMatchHeader("Point", aliases);
 

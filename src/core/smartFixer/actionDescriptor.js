@@ -71,10 +71,11 @@ function formatProposedFix(fix, element) {
   const ri = element._rowIndex;
 
   switch (fix.type) {
-    case "DELETE":
+    case "DELETE": {
       const len = element.ep1 && element.ep2 ? vec.mag(vec.sub(element.ep2, element.ep1)) : 0;
       return `DELETE [${fix.ruleId}]: Remove ${type}\n` +
              `Length: ${len.toFixed(1)}mm, Bore: ${element.bore || 0}mm`;
+    }
 
     case "SNAP_AXIS":
       return `SNAP [${fix.ruleId}]: Align ${type} to pure ${fix.dominantAxis}-axis\n` +

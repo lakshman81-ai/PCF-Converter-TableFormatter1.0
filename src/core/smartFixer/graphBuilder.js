@@ -41,7 +41,6 @@ function findNearestByCoord(components, targetPt, tolerance, excludeRowIndex) {
 
 function buildSequentialGraph(dataTable, config) {
   const tolerance = config.smartFixer?.connectionTolerance ?? 25.0;
-  const reviewMax = config.smartFixer?.reviewGapMax ?? 100.0;
   const components = filterToComponents(dataTable);
 
   const edges = new Map();

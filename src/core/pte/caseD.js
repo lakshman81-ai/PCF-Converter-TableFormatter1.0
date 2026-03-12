@@ -5,7 +5,7 @@
 
 import { vec } from '../../utils/math';
 
-export function twoPassOrphanSweep(allRows, config, log) {
+export function twoPassOrphanSweep(allRows, config) {
   // Pass 1: Line_Key matched
   const lineGroups = {};
   for (const row of allRows) {
@@ -52,7 +52,7 @@ export function twoPassOrphanSweep(allRows, config, log) {
   return { orderedChains };
 }
 
-export function pureOrphanSweep(allRows, config, log) {
+export function pureOrphanSweep(allRows, config) {
   // Pure topology sweep
   const terminals = findChainTerminals(allRows);
   const chains = [];
@@ -61,7 +61,7 @@ export function pureOrphanSweep(allRows, config, log) {
   for (const terminal of terminals) {
     if (!remaining.has(terminal)) continue;
 
-    const { sorted, orphans } = orphanSweep(Array.from(remaining), null, config, terminal);
+    const { sorted } = orphanSweep(Array.from(remaining), null, config, terminal);
 
     if (sorted.length >= 2) {
       chains.push(sorted);
@@ -111,13 +111,13 @@ function sweepForNeighbor(current, candidates, travelAxis, travelDir, lineKey, c
   const filtered = lineKey ? candidates.filter(c => c.Line_Key === lineKey) : candidates;
 
   const stages = [
-    { radius: 0.2 * NB },
-    { radius: 1.0 * NB },
-    { radius: 5.0 * NB },
-    { radius: 10.0 * NB },
-    { radius: 20.0 * NB },
-    { radius: 7000 },
-    { radius: 13000 }
+    { radius: 0.2 * NB, label: "micro (tolerance)" },
+    { radius: 1.0 * NB, label: "adjacent fitting" },
+    { radius: 5.0 * NB, label: "nearby" },
+    { radius: 10.0 * NB, label: "normal pipe span" },
+    { radius: 20.0 * NB, label: "long pipe span" },
+    { radius: 7000, label: "very long span" },
+    { radius: 13000, label: "maximum span" }
   ];
 
   for (const stage of stages) {
@@ -131,25 +131,56 @@ function sweepForNeighbor(current, candidates, travelAxis, travelDir, lineKey, c
         const delta = vec.sub(cand.coord, current.coord);
         const { axis, dir } = dominantAxisAndDirection(delta);
 
-        let axisPenalty = 0;
+        let score = d;
+
+        // Axis alignment bonuses/penalties from PCF-PTE-002 §10
         if (travelAxis) {
-          if (axis === travelAxis && dir === travelDir) axisPenalty = 0;
-          else if (axis === travelAxis && dir !== travelDir) axisPenalty = 5000;
-          else axisPenalty = 1000;
+          if (axis === travelAxis && dir === travelDir) {
+            score *= 0.3; // 70% bonus (same direction)
+          } else if (axis === travelAxis && dir !== travelDir) {
+            score *= 5.0; // 5x penalty (fold-back)
+          } else {
+            score *= 1.5; // 50% penalty (axis change / bend)
+          }
         }
 
-        const score = d + axisPenalty;
-        results.push({ candidate: cand, score });
+        // Single-axis preference
+        const nonZeroAxes = countNonZeroAxes(delta, 0.5);
+        if (nonZeroAxes === 1) {
+            score *= 0.5; // 50% bonus
+        } else if (nonZeroAxes === 2) {
+            score *= 0.9; // 10% bonus
+        } else if (nonZeroAxes >= 3) {
+            score *= 2.0; // Diagonal penalty
+        }
+
+        results.push({ candidate: cand, score, axis, dir });
       }
     }
 
     if (results.length > 0) {
       results.sort((a, b) => a.score - b.score);
-      return results[0].candidate;
+
+      // Ambuguity Check
+      const best = results[0];
+      const closeMatches = results.filter(r => r.score < best.score * 1.1);
+      if (closeMatches.length > 1 && config && config.log) {
+          // Could log ambiguity warning here if log array is available
+      }
+      return best.candidate;
     }
   }
 
   return null;
+}
+
+function countNonZeroAxes(v, threshold = 0.5) {
+    if (!v) return 0;
+    let count = 0;
+    if (Math.abs(v.x) > threshold) count++;
+    if (Math.abs(v.y) > threshold) count++;
+    if (Math.abs(v.z) > threshold) count++;
+    return count;
 }
 
 function findChainTerminal(points) {

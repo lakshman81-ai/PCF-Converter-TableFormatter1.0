@@ -8,7 +8,7 @@ export function PreviewModal() {
   const { state, dispatch } = useAppContext();
   const [columnMap, setColumnMap] = useState({});
 
-  const { file, detected, headers, firstRows, fullData, text } = state.previewModal || {};
+  const { file, detected, headers, firstRows, text } = state.previewModal || {};
   const expectedType = state.inputType;
 
   useEffect(() => {
@@ -34,14 +34,14 @@ export function PreviewModal() {
 
   const handleConfirm = async () => {
     // Hide modal
-    dispatch({ type: 'SET_PREVIEW_MODAL', payload: { open: false, file: null, detected: null, headers: [], firstRows: [], fullData: [], text: null } });
+    dispatch({ type: 'SET_PREVIEW_MODAL', payload: { open: false, file: null, detected: null, headers: [], firstRows: [], text: null } });
 
     // Actually run the conversion
     try {
       let logs = [];
       let resultTable = [];
 
-      logs.push({ type: "Info", stage: 1, message: "Starting parse after preview confirmation..." });
+      logs.push({ type: "Info", message: "Starting parse after preview confirmation..." });
 
       if (expectedType === "pcf_text") {
         const { parsePCFText } = await import('../core/parsers');
@@ -49,24 +49,24 @@ export function PreviewModal() {
         resultTable = parseResult.dataTable;
       } else if (expectedType === "point_csv") {
         const { parsePointCSV } = await import('../core/parsers');
-        const parseResult = parsePointCSV(fullData, columnMap, state.config);
+        const parseResult = parsePointCSV(firstRows, state.config, logs);
         resultTable = parseResult;
       } else if (expectedType === "element_csv") {
         const { parseElementCSV } = await import('../core/parsers');
-        const parseResult = parseElementCSV(fullData, columnMap);
+        const parseResult = parseElementCSV(firstRows, state.config, logs);
         resultTable = parseResult;
       }
 
       dispatch({ type: 'SET_DATA_TABLE', payload: resultTable });
       logs.forEach(l => dispatch({ type: 'ADD_LOG_ENTRY', payload: l }));
-      logs.push({ type: "Info", stage: 1, message: "Parse complete. Data table populated." });
+      logs.push({ type: "Info", message: "Parse complete. Data table populated." });
     } catch (e) {
       alert(`Error during processing: ${e.message}`);
     }
   };
 
   const handleCancel = () => {
-    dispatch({ type: 'SET_PREVIEW_MODAL', payload: { open: false, file: null, detected: null, headers: [], firstRows: [], fullData: [], text: null } });
+    dispatch({ type: 'SET_PREVIEW_MODAL', payload: { open: false, file: null, detected: null, headers: [], firstRows: [], text: null } });
   };
 
   return (

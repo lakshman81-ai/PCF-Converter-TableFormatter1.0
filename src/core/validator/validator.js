@@ -2,7 +2,6 @@
  * Core Validator: V1-V20
  */
 import { vec } from '../../utils/math';
-import { runBasicFixes } from './basicFixer';
 import { registerRule, logRuleExecution } from '../ruleRegistry';
 
 // Register ONLY the Validation rules we explicitly test and have implemented below
@@ -15,7 +14,7 @@ export function runValidation(dataTable, config, log) {
   const results = [];
 
   function addResult(ruleId, severity, row, message) {
-    results.push({ ruleId, severity, row, message });
+    results.push({ ruleId, severity, row, stage: 3, message });
     logRuleExecution(ruleId, row);
   }
 
@@ -32,7 +31,6 @@ export function runValidation(dataTable, config, log) {
 
     // V2: Decimal consistency (comparing length of stringified decimals against config)
     if (row.ep1 && typeof row.bore === 'number') {
-      const targetDecimals = config?.decimals ?? 4;
       const boreStr = row._rawBore || row.bore.toString();
       const xStr = row._rawX || row.ep1.x.toString();
       const yStr = row.ep1.y.toString();

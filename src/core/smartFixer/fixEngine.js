@@ -127,7 +127,7 @@ function trimPipe(pipe, amount, travelAxis, travelDir, which) {
   }
 }
 
-function createFillerPipe(chainLink, config) {
+function createFillerPipe(chainLink) {
   const upstream = chainLink.element;
   const downstream = chainLink.nextElement;
   const exitPt = getExitPoint(upstream);

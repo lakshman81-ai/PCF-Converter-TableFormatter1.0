@@ -6,7 +6,11 @@
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver'; // Needed for browser save
 
+import { enforceDataTableSchema } from '../schema.js';
+
 export async function exportToExcel(dataTable) {
+  const validatedTable = enforceDataTableSchema(dataTable);
+
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Data Table', { views: [{ state: 'frozen', ySplit: 1 }] });
 
@@ -45,7 +49,7 @@ export async function exportToExcel(dataTable) {
   sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
 
   // Add rows with styling
-  for (const row of dataTable) {
+  for (const row of validatedTable) {
     const sheetRow = sheet.addRow({
       _rowIndex: row._rowIndex,
       csvSeqNo: row.csvSeqNo,

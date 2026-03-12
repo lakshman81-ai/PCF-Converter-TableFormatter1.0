@@ -56,7 +56,7 @@ function App() {
           <h1 className="text-xl font-bold">PCF Validator, Fixer & Converter v2.0</h1>
         </div>
         <div>
-          <span className="text-xs text-gray-500">Ver 10-03-2025 (1)</span>
+          <span className="text-xs text-gray-500">Ver 10-03-2026 (1)</span>
           <button
             className="ml-4 px-2 py-1 bg-gray-200 rounded text-xs"
             onClick={() => dispatch({ type: 'TOGGLE_DEV_MODE' })}
@@ -127,9 +127,8 @@ function App() {
       </main>
 
       <footer className="bg-gray-100 p-4 border-t flex justify-between items-center text-sm">
-         <div className="text-gray-600 flex items-center gap-4">
-           <span>Ready.</span>
-           <span className="text-xs text-gray-400">Ver 10-03-2025 time 11.00</span>
+         <div className="text-gray-600">
+           Ready.
          </div>
          <div className="space-x-2">
             <button

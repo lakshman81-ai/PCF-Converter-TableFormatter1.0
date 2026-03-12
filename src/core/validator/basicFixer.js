@@ -3,8 +3,6 @@
  * Implementation of PCF Consolidated Master v2.0 Part C §5.2–5.5
  */
 
-import { vec } from '../../utils/math';
-
 export function runBasicFixes(dataTable, config, log) {
   const result = [...dataTable];
 

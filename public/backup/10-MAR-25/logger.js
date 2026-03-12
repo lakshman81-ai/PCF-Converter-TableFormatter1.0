@@ -6,7 +6,7 @@
  * and provide a download function for session logs).
  */
 
-export function createLogEntry(type, message, ruleId = null, tier = null, row = null, tags = [], stage = null) {
+export function createLogEntry(type, message, ruleId = null, tier = null, row = null, tags = []) {
   return {
     id: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
@@ -15,18 +15,17 @@ export function createLogEntry(type, message, ruleId = null, tier = null, row = 
     ruleId,
     tier,
     row,
-    tags,
-    stage       // 1 (Ingestion/PTE), 2 (Parsing/Populating), 3 (Formatting), 4 (Export)
+    tags
   };
 }
 
 export function generateSessionLogText(logEntries) {
   let text = `# Session Log - ${new Date().toLocaleString()}\n\n`;
-  text += `| Time | Stage | Type | Rule | Tier | Row | Message |\n`;
-  text += `|---|---|---|---|---|---|---|\n`;
+  text += `| Time | Type | Rule | Tier | Row | Message |\n`;
+  text += `|---|---|---|---|---|---|\n`;
 
   for (const entry of logEntries) {
-    text += `| ${new Date(entry.timestamp).toLocaleTimeString()} | ${entry.stage || '-'} | ${entry.type} | ${entry.ruleId || '-'} | ${entry.tier || '-'} | ${entry.row || '-'} | ${entry.message} |\n`;
+    text += `| ${new Date(entry.timestamp).toLocaleTimeString()} | ${entry.type} | ${entry.ruleId || '-'} | ${entry.tier || '-'} | ${entry.row || '-'} | ${entry.message} |\n`;
   }
   return text;
 }

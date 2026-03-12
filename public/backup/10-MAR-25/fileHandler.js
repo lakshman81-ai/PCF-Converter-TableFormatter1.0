@@ -3,21 +3,19 @@ import Papa from 'papaparse';
 import { detectImportType } from '../core/parsers/detect';
 
 export async function processFile(file, expectedType, config, dispatch, logs) {
-  logs.push({ type: "Info", stage: 1, message: `Reading file ${file.name}...` });
+  logs.push({ type: "Info", message: `Reading file ${file.name}...` });
   dispatch({ type: 'SET_RAW_INPUT', payload: file });
 
   const text = await file.text();
   const fileExtension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
 
   let firstRows = [];
-  let fullData = [];
   let headers = [];
 
   // Parse based on file type
   if (fileExtension === '.csv') {
     const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
-    fullData = parsed.data;
-    firstRows = fullData.slice(0, 50);
+    firstRows = parsed.data.slice(0, 50);
     headers = parsed.meta.fields || Object.keys(firstRows[0] || {});
   } else if (fileExtension === '.xlsx' || fileExtension === '.xls') {
     const data = await file.arrayBuffer();
@@ -27,25 +25,23 @@ export async function processFile(file, expectedType, config, dispatch, logs) {
     const parsed = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
     if (parsed.length > 0) {
       headers = parsed[0];
-      fullData = parsed.slice(1).map(row => {
+      firstRows = parsed.slice(1, 51).map(row => {
         const obj = {};
         headers.forEach((h, i) => obj[h] = row[i]);
         return obj;
       });
-      firstRows = fullData.slice(0, 50);
     }
   } else if (fileExtension === '.pcf' || fileExtension === '.txt') {
-    fullData = text.split(/\r?\n/);
-    firstRows = fullData.slice(0, 50);
+    firstRows = text.split(/\r?\n/).slice(0, 50);
   } else {
     throw new Error("Unsupported file extension. Only CSV, XLSX, XLS, PCF, TXT allowed.");
   }
 
   const detected = detectImportType(headers, firstRows, fileExtension);
-  logs.push({ type: "Info", stage: 1, message: `Detected import type: ${detected}` });
+  logs.push({ type: "Info", message: `Detected import type: ${detected}` });
 
   if (detected !== expectedType && detected !== "unknown") {
-     logs.push({ type: "Warning", stage: 1, message: `File looks like ${detected} but expected ${expectedType}. Proceeding anyway.` });
+     logs.push({ type: "Warning", message: `File looks like ${detected} but expected ${expectedType}. Proceeding anyway.` });
   }
 
   // Load preview data before processing
@@ -56,7 +52,6 @@ export async function processFile(file, expectedType, config, dispatch, logs) {
       file,
       detected,
       headers,
-      fullData,
       firstRows,
       text, // for PCF processing later
     }
