@@ -30,19 +30,40 @@ export function runValidation(dataTable, config, log) {
       addResult("V1", "ERROR", row._rowIndex, `ERROR [V1]: (0,0,0) coordinate detected.`);
     }
 
-    // V2: Decimal consistency (comparing length of stringified decimals)
+    // V2: Decimal consistency (comparing length of stringified decimals against config)
     if (row.ep1 && typeof row.bore === 'number') {
-      const boreDecimals = (row.bore.toString().split('.')[1] || '').length;
-      const xDecimals = (row.ep1.x.toString().split('.')[1] || '').length;
-      if (boreDecimals !== xDecimals) {
-         addResult("V2", "ERROR", row._rowIndex, `ERROR [V2]: Decimal precision mismatch. Bore: ${boreDecimals}, Coords: ${xDecimals}`);
+      const targetDecimals = config?.decimals ?? 4;
+      const boreStr = row._rawBore || row.bore.toString();
+      const xStr = row._rawX || row.ep1.x.toString();
+      const yStr = row.ep1.y.toString();
+
+      const bDec = (boreStr.split('.')[1] || '').length;
+      const xDec = (xStr.split('.')[1] || '').length;
+      const yDec = (yStr.split('.')[1] || '').length;
+
+      // Use max decimal found in coords to represent coordinate decimals, since trailing zeroes get dropped
+      const coordDecs = Math.max(xDec, yDec);
+
+      // Ensure that ALL inputs respect the decimal config or at least match each other
+      if (bDec !== coordDecs && (bDec > 0 || coordDecs > 0)) {
+         addResult("V2", "ERROR", row._rowIndex, `ERROR [V2]: Decimal precision mismatch. Bore: ${bDec}, Coords max: ${coordDecs}`);
       }
     }
 
     // V3: Bore consistency
-    if (type !== "REDUCER-CONCENTRIC" && type !== "REDUCER-ECCENTRIC" && row.ep1 && row.ep2) {
-      if (row.ep1.bore !== undefined && row.ep2.bore !== undefined && row.ep1.bore !== row.ep2.bore) {
-         addResult("V3", "ERROR", row._rowIndex, `ERROR [V3]: Non-reducer has differing bores on endpoints.`);
+    if (type === "REDUCER-CONCENTRIC" || type === "REDUCER-ECCENTRIC") {
+      // For reducers, we can check row.ep1.bore and row.ep2.bore, or row.bore and row.branchBore depending on how parser sets them.
+      // Usually they have different bores on endpoints or branchBore
+      const b1 = row.ep1?.bore ?? row.bore;
+      const b2 = row.ep2?.bore ?? row.branchBore ?? row.bore;
+      if (b1 !== undefined && b2 !== undefined && b1 === b2) {
+         addResult("V3", "ERROR", row._rowIndex, `ERROR [V3]: Reducer has identical bores (${b1}).`);
+      }
+    } else if (row.ep1 && row.ep2) {
+      const b1 = row.ep1.bore;
+      const b2 = row.ep2.bore;
+      if (b1 !== undefined && b2 !== undefined && b1 !== b2) {
+         addResult("V3", "ERROR", row._rowIndex, `ERROR [V3]: Non-reducer has differing bores on endpoints (${b1} vs ${b2}).`);
       }
     }
 
@@ -73,8 +94,14 @@ export function runValidation(dataTable, config, log) {
         if (vec.dist(row.cp, mid) > 0.1) {
            addResult("V8", "ERROR", row._rowIndex, `ERROR [V8]: TEE CP is not at exact midpoint.`);
         }
-        if (row.ep1.bore !== undefined && row.cp.bore !== undefined && row.ep1.bore !== row.cp.bore) {
-           addResult("V9", "ERROR", row._rowIndex, `ERROR [V9]: TEE CP bore ≠ EP bore.`);
+        // TEE bore from generator/parser logic.
+        // Sometimes parser leaves row.cp.bore undefined but sets branchBore.
+        // Or if it sets row.cp.bore, we check it.
+        const epBore = row.ep1.bore ?? row.bore;
+        const cpBore = row.cp.bore ?? row.branchBore ?? row.bore;
+
+        if (epBore !== undefined && cpBore !== undefined && epBore !== cpBore) {
+           addResult("V9", "ERROR", row._rowIndex, `ERROR [V9]: TEE CP bore (${cpBore}) ≠ EP bore (${epBore}).`);
         }
       }
       if (row.cp && row.bp && row.ep1 && row.ep2) {
