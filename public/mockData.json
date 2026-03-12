@@ -1,0 +1,25 @@
+[
+  {
+    "type": "PIPE",
+    "bore": 350,
+    "ep1": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "ep2": {
+      "x": 1000,
+      "y": 0,
+      "z": 0
+    },
+    "cp": null,
+    "bp": null,
+    "branchBore": null,
+    "skey": "",
+    "supportCoor": null,
+    "supportName": "",
+    "supportGuid": "",
+    "ca": {},
+    "text": ""
+  }
+]

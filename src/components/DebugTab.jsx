@@ -103,7 +103,7 @@ function LogWindow({ title, logs, defaultFilter = "All", className = "" }) {
   const filteredLogs = logs.filter(entry => filter === 'All' || entry.type === filter || (filter === 'Applied' && entry.type === 'Fix'));
 
   return (
-    <div className={`flex flex-col border rounded overflow-hidden shadow-sm h-full ${className}`}>
+    <div className={`flex flex-col border rounded overflow-hidden shadow-sm min-h-[30rem] h-full ${className}`}>
       <div className="bg-gray-100 border-b p-2 flex justify-between items-center">
         <h3 className="font-bold text-sm text-gray-800">{title} ({filteredLogs.length})</h3>
         <select

@@ -128,7 +128,7 @@ export function parsePCFText(pcfContent) {
     dataTable.push(finalizeComponent(currentComponent, rowIndex++));
   }
 
-  return { headerRows, dataTable: validateDataTable(dataTable), pipelineRef };
+  return { headerRows, dataTable: dataTable, pipelineRef };
 }
 
 // Helpers

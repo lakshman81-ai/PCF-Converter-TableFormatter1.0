@@ -55,6 +55,7 @@ export function PreviewModal() {
         const { parseElementCSV } = await import('../core/parsers');
         const parseResult = parseElementCSV(fullData, columnMap);
         resultTable = parseResult;
+        logs.push({ type: "Info", stage: 2, message: `Parsed element CSV containing ${resultTable.length} rows.` });
       }
 
       dispatch({ type: 'SET_DATA_TABLE', payload: resultTable });

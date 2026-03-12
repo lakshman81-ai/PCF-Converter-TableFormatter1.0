@@ -98,21 +98,69 @@ function App() {
              <div className="h-full flex flex-col gap-4">
                  <div className="bg-white rounded shadow p-4 flex justify-between items-center shrink-0">
                     <span className="text-gray-500">Shell UI Loaded. Input: {state.inputType || 'None'}</span>
-                    <button
-                      className="px-4 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm font-bold"
-                      onClick={async () => {
-                         const { BENCHMARK_PCF_SMALL } = await import('./tests/mockData');
-                         const { parsePCFText } = await import('./core/parsers');
-                         try {
-                           const result = parsePCFText(BENCHMARK_PCF_SMALL);
-                           dispatch({ type: 'SET_DATA_TABLE', payload: result.dataTable });
-                         } catch (e) {
-                           alert("Parse failed: " + e.message);
-                         }
-                      }}
-                    >
-                      Load Mock PCF
-                    </button>
+                    <div className="space-x-2">
+                        <button
+                          className="px-4 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm font-bold"
+                          onClick={async () => {
+                             const { BENCHMARK_PCF_SMALL } = await import('./tests/mockData');
+                             const { parsePCFText } = await import('./core/parsers');
+                             try {
+                               const result = parsePCFText(BENCHMARK_PCF_SMALL);
+                               dispatch({ type: 'SET_DATA_TABLE', payload: result.dataTable });
+                             } catch (e) {
+                               alert("Parse failed: " + e.message);
+                             }
+                          }}
+                        >
+                          Load Mock PCF
+                        </button>
+                        <button
+                          className="px-4 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 text-sm font-bold"
+                          onClick={async () => {
+                             try {
+                               const response = await fetch('/mockData.json');
+                               const data = await response.json();
+                               const { parseElementCSV } = await import('./core/parsers/elementCSV');
+
+                               const columnMap = {
+                                  "Sequence": "CSV SEQ NO",
+                                  "CSV SEQ NO": "CSV SEQ NO",
+                                  "COMPONENT": "Type",
+                                  "Type": "Type",
+                                  "TEXT": "TEXT",
+                                  "PIPELINE-REFERENCE": "PIPELINE",
+                                  "PIPELINE": "PIPELINE",
+                                  "Line No": "PIPELINE",
+                                  "REF NO.": "REF NO.",
+                                  "RefNo": "REF NO.",
+                                  "BORE": "BORE",
+                                  "EP1 COORDS": "EP1 COORDS",
+                                  "EP2 COORDS": "EP2 COORDS",
+                                  "CP COORDS": "CP COORDS",
+                                  "BP COORDS": "BP COORDS",
+                                  "SKEY": "SKEY",
+                                  "SUPPORT COOR": "SUPPORT COORDS",
+                                  "SUPPORT GUID": "SUPPORT GUID"
+                                };
+                               const mappedInput = data.map(row => {
+                                 const newRow = { ...row };
+                                 if (newRow["Sequence"]) {
+                                   newRow["CSV SEQ NO"] = newRow["Sequence"];
+                                   delete newRow["Sequence"];
+                                 }
+                                 return newRow;
+                               });
+
+                               const dataTable = parseElementCSV(mappedInput, columnMap);
+                               dispatch({ type: 'SET_DATA_TABLE', payload: dataTable });
+                             } catch (e) {
+                               alert("Failed to load Mock JSON: " + e.message);
+                             }
+                          }}
+                        >
+                          Load Mock JSON (from BM)
+                        </button>
+                    </div>
                  </div>
                  <div className="flex-grow min-h-0">
                     <DataTableTab />
@@ -134,17 +182,18 @@ function App() {
          <div className="space-x-2">
             <button
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-              disabled={!state.dataTable || state.dataTable.length === 0}
+              disabled={!state.dataTable || state.dataTable.length === 0 || !state.syntaxChecked}
               onClick={async () => {
                 const { exportToExcel } = await import('./core/export/excelExport');
                 exportToExcel(state.dataTable);
               }}
+              title={!state.syntaxChecked ? "Please click 'Check data table syntax' before exporting." : ""}
             >
               Export Data Table ↓
             </button>
             <button
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-              disabled={!state.dataTable || state.dataTable.length === 0}
+              disabled={!state.dataTable || state.dataTable.length === 0 || !state.syntaxChecked}
               onClick={async () => {
                 const { generatePcf } = await import('./core/export/pcfGenerator');
                 const text = generatePcf(state.dataTable, state.config);

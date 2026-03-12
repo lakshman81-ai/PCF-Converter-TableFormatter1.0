@@ -56,16 +56,19 @@ const initialState = {
   devMode: false,
   ruleRegistry: {},
   previewModal: { open: false, file: null, detected: null, headers: [], firstRows: [], text: null },
+  syntaxChecked: false,
 };
 
 function reducer(state, action) {
   switch (action.type) {
     case 'SET_INPUT_TYPE':
       return { ...state, inputType: action.payload };
+    case 'SET_SYNTAX_CHECKED':
+      return { ...state, syntaxChecked: action.payload };
     case 'SET_RAW_INPUT':
       return { ...state, rawInput: action.payload };
     case 'SET_DATA_TABLE':
-      return { ...state, dataTable: action.payload };
+      return { ...state, dataTable: action.payload, syntaxChecked: false };
     case 'SET_CONFIG':
       return { ...state, config: { ...state.config, ...action.payload } };
     case 'ADD_LOG_ENTRY':
