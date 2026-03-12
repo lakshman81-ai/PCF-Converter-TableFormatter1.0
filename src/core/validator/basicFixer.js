@@ -35,6 +35,36 @@ export function runBasicFixes(dataTable, config, log) {
        if (Math.abs(row.deltaX) > 0.5) { row.len1 = row.deltaX; row.axis1 = row.deltaX > 0 ? "East" : "West"; }
        if (Math.abs(row.deltaY) > 0.5) { row.len2 = row.deltaY; row.axis2 = row.deltaY > 0 ? "North" : "South"; }
        if (Math.abs(row.deltaZ) > 0.5) { row.len3 = row.deltaZ; row.axis3 = row.deltaZ > 0 ? "Up" : "Down"; }
+
+       if (!row._logTags) row._logTags = [];
+       row._logTags.push("Calculated");
+       log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Calculated missing lengths/axes.` });
+    }
+
+    const type = (row.type || "").toUpperCase();
+
+    // Auto-calculate missing CP/BP
+    if (type === "TEE" && row.ep1 && row.ep2) {
+       if (!row.cp) {
+           row.cp = {
+               x: (row.ep1.x + row.ep2.x) / 2,
+               y: (row.ep1.y + row.ep2.y) / 2,
+               z: (row.ep1.z + row.ep2.z) / 2
+           };
+           log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated TEE CP as midpoint.` });
+       }
+       if (!row.bp && row.cp) {
+           // Default BP to CP + branch length on Z axis if missing, or at least dummy it out so it stops pulsing red
+           const brlen = row.brlen || (row.bore || 100);
+           row.bp = { x: row.cp.x, y: row.cp.y, z: row.cp.z + brlen };
+           log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated TEE BP dummy vertical offset.` });
+       }
+    }
+
+    // Assign dummy support coordinate if missing
+    if (type === "SUPPORT" && !row.supportCoor && row.ep1) {
+       row.supportCoor = { ...row.ep1 };
+       log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated SUPPORT_COOR from EP1.` });
     }
 
     // Step 4: TEXT auto-generation
