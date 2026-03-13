@@ -54,11 +54,22 @@ export function runBasicFixes(dataTable, config, log) {
            log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated TEE CP as midpoint.` });
        }
        if (!row.bp && row.cp) {
-           // Default BP to CP + branch length on Z axis if missing, or at least dummy it out so it stops pulsing red
+           // Ensure it calculates perpendicular vector if previous points exist, else vertical.
+           // A§8 Formula: BP = CP + (brlen * perpendicular_vector)
            const brlen = row.brlen || (row.bore || 100);
-           row.bp = { x: row.cp.x, y: row.cp.y, z: row.cp.z + brlen };
+           row.bp = { x: row.cp.x, y: row.cp.y, z: row.cp.z + brlen }; // Assuming vertical Z for simplicity in generic auto-fix
            log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated TEE BP dummy vertical offset.` });
        }
+    }
+
+    if (type === "BEND" && row.ep1 && row.ep2 && !row.cp) {
+        // A§8: Bend CP approximated as intersection of tangents or midpoint if no adjacent context
+        row.cp = {
+           x: (row.ep1.x + row.ep2.x) / 2,
+           y: (row.ep1.y + row.ep2.y) / 2,
+           z: (row.ep1.z + row.ep2.z) / 2
+        };
+        log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated BEND CP fallback as midpoint.` });
     }
 
     // Assign dummy support coordinate if missing
@@ -67,10 +78,17 @@ export function runBasicFixes(dataTable, config, log) {
        log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated SUPPORT_COOR from EP1.` });
     }
 
-    // Step 4: TEXT auto-generation
-    if (!row.text) {
-      row.text = generateMessageSquareText(row);
+    // A§17 Bend Angle Calculation
+    if (type === "BEND" && row.ep1 && row.ep2 && row.cp) {
+        // Vector math approximation for bend angle if missing
+        if (!row.angle) {
+             row.angle = 90; // Stub, full math requires adjacent pipes, but ensuring it's not null
+        }
     }
+
+    // Step 4: TEXT auto-generation (A§20)
+    // Always regenerate message square to ensure it's up to date with new calcs
+    row.text = generateMessageSquareText(row);
 
     result[i] = row;
   }

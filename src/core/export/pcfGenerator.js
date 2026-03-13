@@ -35,7 +35,15 @@ export function generatePcf(dataTable, config) {
       continue; // Skip header lines parsed from source
     }
 
-    if (row.type === "PIPELINE-REFERENCE" || row.type === "MESSAGE-SQUARE") {
+    // Explicitly output PIPELINE-REFERENCE if it acts as a standalone row
+    if (row.type === "PIPELINE-REFERENCE") {
+      lines.push(`PIPELINE-REFERENCE ${row.text || row.pipelineRef || globalPipelineRef}`);
+      continue;
+    }
+
+    // Output Message squares as well
+    if (row.type === "MESSAGE-SQUARE") {
+      lines.push(`MESSAGE-SQUARE ${row.text || ""}`);
       continue;
     }
 
