@@ -25,6 +25,8 @@ export const RULE_REGISTRY = {
   "V18": { name: "Bore unit detection",              severity: "WARNING", implemented: false },
   "V19": { name: "SUPPORT MESSAGE-SQUARE",           severity: "WARNING", implemented: false },
   "V20": { name: "GUID prefix UCI:",                 severity: "ERROR",   implemented: false },
+  "V21": { name: "OLET BP validation",               severity: "ERROR",   implemented: false },
+  "V22": { name: "BEND Radius / CP validation",      severity: "ERROR",   implemented: false },
 
   // ─── Smart Fixer Rules (R-GEO through R-AGG) ───
   "R-GEO-01": { name: "Micro-element deletion",     tier: "1/4", implemented: false },

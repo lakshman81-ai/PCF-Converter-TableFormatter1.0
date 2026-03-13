@@ -7,7 +7,7 @@ import { registerRule, logRuleExecution } from '../ruleRegistry';
 // Register ONLY the Validation rules we explicitly test and have implemented below
 [
   "V1", "V2", "V3", "V4", "V5", "V6", "V7", "V8", "V9", "V10",
-  "V11", "V12", "V13", "V14", "V15", "V16", "V17", "V18", "V19", "V20"
+  "V11", "V12", "V13", "V14", "V15", "V16", "V17", "V18", "V19", "V20", "V21", "V22"
 ].forEach(ruleId => registerRule(ruleId));
 
 export function runValidation(dataTable, config, log) {
@@ -17,6 +17,35 @@ export function runValidation(dataTable, config, log) {
     results.push({ ruleId, severity, row, stage: 3, message });
     logRuleExecution(ruleId, row);
   }
+
+  // Pre-calculate document-wide decimal consistency (V2)
+  let docBoreDec = null;
+  let docCoordDec = null;
+  let hasV2Mismatch = false;
+
+  if (config.validator?.["V2"] !== false) {
+    for (let i = 0; i < dataTable.length; i++) {
+      const row = dataTable[i];
+      if (row.ep1 && typeof row.bore === 'number') {
+        const boreStr = row._rawBore || row.bore.toString();
+        const xStr = row._rawX || row.ep1.x.toString();
+        const yStr = row.ep1.y.toString();
+
+        const bDec = (boreStr.split('.')[1] || '').length;
+        const xDec = (xStr.split('.')[1] || '').length;
+        const yDec = (yStr.split('.')[1] || '').length;
+        const cDec = Math.max(xDec, yDec);
+
+        if (docBoreDec === null) docBoreDec = bDec;
+        if (docCoordDec === null) docCoordDec = cDec;
+
+        if (bDec !== docBoreDec || cDec !== docCoordDec) {
+          hasV2Mismatch = true;
+        }
+      }
+    }
+  }
+
 
   for (let i = 0; i < dataTable.length; i++) {
     const row = dataTable[i];
@@ -33,22 +62,16 @@ export function runValidation(dataTable, config, log) {
       }
     }
 
-    // V2: Decimal consistency (Auto-detect precision and ensure it's uniform)
-    if (isEnabled("V2") && row.ep1 && typeof row.bore === 'number') {
+    // V2: Decimal consistency (Document-wide)
+    if (isEnabled("V2") && hasV2Mismatch && row.ep1 && typeof row.bore === 'number') {
       const boreStr = row._rawBore || row.bore.toString();
       const xStr = row._rawX || row.ep1.x.toString();
       const yStr = row.ep1.y.toString();
-
       const bDec = (boreStr.split('.')[1] || '').length;
-      const xDec = (xStr.split('.')[1] || '').length;
-      const yDec = (yStr.split('.')[1] || '').length;
+      const cDec = Math.max((xStr.split('.')[1] || '').length, (yStr.split('.')[1] || '').length);
 
-      // Use max decimal found in coords to represent coordinate decimals
-      const coordDecs = Math.max(xDec, yDec);
-
-      // Only warn if they actually mismatch internally against EACH OTHER, rather than a hard config
-      if (bDec !== coordDecs && (bDec > 0 || coordDecs > 0)) {
-         addResult("V2", "WARNING", row._rowIndex, `WARNING [V2]: Decimal precision mismatch. Bore: ${bDec} decimal(s), Coords: ${coordDecs} decimal(s)`);
+      if (bDec !== docBoreDec || cDec !== docCoordDec) {
+         addResult("V2", "WARNING", row._rowIndex, `WARNING [V2]: Decimal precision mismatch. Row has Bore: ${bDec} dec, Coords: ${cDec} dec. Document majority is Bore: ${docBoreDec}, Coords: ${docCoordDec}.`);
       }
     }
 
@@ -157,7 +180,7 @@ export function runValidation(dataTable, config, log) {
     if (isEnabled("V16")) {
       if (row.ca?.[8] && (type === "PIPE" || type === "SUPPORT")) {
         addResult("V16", "WARNING", row._rowIndex, `WARNING [V16]: CA8 (weight) populated on ${type}.`);
-      } else if (!row.ca?.[8] && ["FLANGE", "VALVE", "BEND", "TEE"].includes(type)) {
+      } else if (!row.ca?.[8] && ["FLANGE", "VALVE"].includes(type)) {
         addResult("V16", "INFO", row._rowIndex, `INFO [V16]: ${type} missing CA8 (weight).`);
       }
     }
@@ -165,6 +188,31 @@ export function runValidation(dataTable, config, log) {
     // V18: Bore unit detection
     if (isEnabled("V18") && row.bore > 0 && row.bore <= 24) {
       addResult("V18", "WARNING", row._rowIndex, `WARNING [V18]: Bore=${row.bore}. Likely inches, verify units.`);
+    }
+
+
+    // V21: OLET BP validation
+    if (isEnabled("V21") && type === "OLET") {
+      if (!row.bp) {
+        addResult("V21", "ERROR", row._rowIndex, `ERROR [V21]: OLET missing BRANCH-POINT (BP).`);
+      } else if (row.cp) {
+        const dist = vec.dist(row.bp, row.cp);
+        if (dist < 0.1) {
+          addResult("V21", "ERROR", row._rowIndex, `ERROR [V21]: OLET BP is identical to CP.`);
+        }
+      }
+    }
+
+    // V22: BEND Radius / CP validation
+    if (isEnabled("V22") && type === "BEND") {
+      if (!row.cp) {
+         addResult("V22", "ERROR", row._rowIndex, `ERROR [V22]: BEND missing CENTRE-POINT (CP).`);
+      } else if (row.ep1 && row.ep2) {
+         // Check if radius/angle are missing
+         if (row.radius === undefined || row.radius <= 0) {
+            addResult("V22", "WARNING", row._rowIndex, `WARNING [V22]: BEND radius is missing or <= 0.`);
+         }
+      }
     }
 
     // V20: GUID Prefix
