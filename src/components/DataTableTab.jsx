@@ -25,7 +25,7 @@ export function DataTableTab() {
     if (field === 'bp' && !row.bp && (type === "TEE" || type === "OLET")) {
        isMissing = true;
     }
-    if (field === 'cp' && !row.cp && (type === "TEE" || type === "OLET" || type === "REDUCER-CONCENTRIC" || type === "REDUCER-ECCENTRIC")) {
+    if (field === 'cp' && !row.cp && (type === "TEE" || type === "OLET")) {
        isMissing = true;
     }
     if (field === 'ca8' && !row.ca?.[8] && (type === "VALVE" || type === "FLANGE")) {
@@ -76,9 +76,11 @@ export function DataTableTab() {
             className="px-4 py-1.5 bg-blue-600 text-white text-sm font-bold rounded shadow hover:bg-blue-700 transition"
             onClick={async () => {
               const { runBasicFixes } = await import('../core/validator/basicFixer');
+              dispatch({ type: 'CLEAR_STAGE_LOGS', payload: 3 });
+
               // Calculate basic stuff: gaps, len1, etc.
               let logs = [];
-              const updatedTable = runBasicFixes(data, state.config, logs);
+              const updatedTable = runBasicFixes(state.dataTable, state.config, logs);
               dispatch({ type: 'SET_DATA_TABLE', payload: updatedTable });
               logs.forEach(l => dispatch({ type: 'ADD_LOG_ENTRY', payload: { ...l, stage: 3 } }));
             }}
@@ -90,8 +92,10 @@ export function DataTableTab() {
             className="px-4 py-1.5 bg-indigo-600 text-white text-sm font-bold rounded shadow hover:bg-indigo-700 transition"
             onClick={async () => {
               const { runValidation } = await import('../core/validator/validator');
+              dispatch({ type: 'CLEAR_STAGE_LOGS', payload: 3 });
+
               let logs = [];
-              runValidation(data, state.config, logs);
+              runValidation(state.dataTable, state.config, logs);
               logs.forEach(l => dispatch({ type: 'ADD_LOG_ENTRY', payload: { ...l, stage: 3 } }));
               dispatch({ type: 'SET_SYNTAX_CHECKED', payload: true });
               alert("Syntax Check Complete. Check Stage 3 Logs.");
@@ -111,7 +115,7 @@ export function DataTableTab() {
                       return;
                    }
 
-                   let fixedTable = [...data];
+                   let fixedTable = [...state.dataTable];
                    let fixedCount = 0;
 
                    const fixLogs = [];
@@ -126,19 +130,23 @@ export function DataTableTab() {
 
                       // Example Syntax Fix logic based on rule ID
                       if (err.ruleId === "V2") {
-                         // Pad SKEY if length is wrong or precision is wrong
+                         // Precision error
+                         const oldBore = row.bore;
+                         row.bore = Number(row.bore).toString(); // Normalizing bore string, e.g., 400.0 -> 400
                          row._modified["bore"] = "SyntaxFix";
-                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Fixed V2 precision error by normalizing bore string.` });
+                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Fixed V2 precision error by normalizing bore string. Bore change from ${oldBore} to ${row.bore}.` });
                          fixedCount++;
                       } else if (err.ruleId === "V1") {
                          // Zero coordinates
+                         const oldEp1 = row.ep1 ? `${row.ep1.x}, ${row.ep1.y}, ${row.ep1.z}` : "null";
                          row.ep1 = row.ep1 && (row.ep1.x!==0 || row.ep1.y!==0 || row.ep1.z!==0) ? row.ep1 : {x:0.1, y:0.1, z:0.1};
                          row._modified["ep1"] = "SyntaxFix";
-                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Fixed V1 by padding zero coordinates.` });
+                         const newEp1 = `${row.ep1.x}, ${row.ep1.y}, ${row.ep1.z}`;
+                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Fixed V1 by padding zero coordinates. EP1 change from ${oldEp1} to ${newEp1}.` });
                          fixedCount++;
                       } else {
                          // Generic fix marker
-                         row._modified["type"] = "SyntaxFix";
+                         row._modified["type"] = "SyntaxFix"; // This sets the dark green highlight
                          fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Applied syntax fix for rule ${err.ruleId}.` });
                          fixedCount++;
                       }

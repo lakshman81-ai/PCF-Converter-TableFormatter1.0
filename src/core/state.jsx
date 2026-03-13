@@ -73,6 +73,8 @@ function reducer(state, action) {
       return { ...state, config: { ...state.config, ...action.payload } };
     case 'ADD_LOG_ENTRY':
       return { ...state, log: [...state.log, action.payload] };
+    case 'CLEAR_STAGE_LOGS':
+      return { ...state, log: state.log.filter(l => l.stage !== action.payload) };
     case 'SET_SMART_FIX_STATUS':
       return { ...state, smartFix: { ...state.smartFix, status: action.payload } };
     case 'SMART_FIX_COMPLETE':

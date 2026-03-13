@@ -23,18 +23,20 @@ export function runBasicFixes(dataTable, config, log) {
        const prev = i > 0 ? result[i - 1] : null;
        const next = i < result.length - 1 ? result[i + 1] : null;
        if (prev && next && prev.bore && next.bore && prev.bore === next.bore) {
+          const oldBore = "Missing/Empty";
           row.bore = prev.bore;
           if (!row._modified) row._modified = {};
           row._modified["bore"] = "Calculated";
-          log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-filled missing Bore (${row.bore}) from adjacent rows.` });
+          log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-filled missing Bore from adjacent rows. Bore change from ${oldBore} to ${row.bore}.` });
        }
     }
 
     if (row.bore != null && row.bore <= (config.smartFixer?.maxBoreForInchDetection ?? 48)) {
       const standardMM = new Set([15, 20, 25, 32, 40, 50, 65, 80, 90, 100, 125, 150, 200, 250, 300, 350, 400, 450, 500, 600, 750, 900, 1050, 1200]);
       if (!standardMM.has(row.bore)) {
-        log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Converted bore ${row.bore}in to ${row.bore * 25.4}mm` });
+        const oldBore = row.bore;
         row.bore = row.bore * 25.4;
+        log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Converted Inch bore to MM. Bore change from ${oldBore} to ${row.bore}.` });
       }
     }
 
@@ -75,18 +77,20 @@ export function runBasicFixes(dataTable, config, log) {
            // A§8 Formula: BP = CP + (brlen * perpendicular_vector)
            const brlen = row.brlen || (row.bore || 100);
            row.bp = { x: row.cp.x, y: row.cp.y, z: row.cp.z + brlen }; // Assuming vertical Z for simplicity in generic auto-fix
-           row._modified["bp"] = "Mock";
+           row._modified["bp"] = "Calculated"; // Ensures cyan-100 highlight
            log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated TEE BP dummy vertical offset.` });
        }
     }
 
     if (type === "BEND" && row.ep1 && row.ep2 && !row.cp) {
         // A§8: Bend CP approximated as intersection of tangents or midpoint if no adjacent context
+        if (!row._modified) row._modified = {};
         row.cp = {
            x: (row.ep1.x + row.ep2.x) / 2,
            y: (row.ep1.y + row.ep2.y) / 2,
            z: (row.ep1.z + row.ep2.z) / 2
         };
+        row._modified["cp"] = "Calculated";
         log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated BEND CP fallback as midpoint.` });
     }
 
