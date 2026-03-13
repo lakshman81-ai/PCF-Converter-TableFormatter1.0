@@ -145,10 +145,9 @@ export function DataTableTab() {
                          fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Fixed V1 by padding zero coordinates. EP1 change from ${oldEp1} to ${newEp1}.` });
                          fixedCount++;
                       } else {
-                         // Generic fix marker
-                         row._modified["type"] = "SyntaxFix"; // This sets the dark green highlight
-                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Applied syntax fix for rule ${err.ruleId}.` });
-                         fixedCount++;
+                         // We do not have auto-fixes defined for this rule yet.
+                         // Do NOT flag it as fixed and do not highlight it in green.
+                         fixLogs.push({ type: "Info", stage: 3, row: rowIdx, message: `Row ${rowIdx}: No automatic syntax fix available for rule ${err.ruleId}. Manual intervention required.` });
                       }
 
                       fixedTable[rowIndex] = row;
@@ -156,7 +155,7 @@ export function DataTableTab() {
 
                    dispatch({ type: 'SET_DATA_TABLE', payload: fixedTable });
                    fixLogs.forEach(l => dispatch({ type: 'ADD_LOG_ENTRY', payload: l }));
-                   dispatch({ type: 'ADD_LOG_ENTRY', payload: { type: "Info", stage: 3, message: `Syntax Fixer complete. Applied ${fixedCount} corrections in dark green.` }});
+                   dispatch({ type: 'ADD_LOG_ENTRY', payload: { type: "Info", stage: 3, message: `Syntax Fixer complete. Applied ${fixedCount} actual corrections in dark green.` }});
                 }}
              >
                 Syntax Fix

@@ -21,6 +21,56 @@ export function ConfigTab() {
 
       <div className="space-y-8 max-w-5xl">
 
+        {/* Validation Rules Checklist (V1-V20) */}
+        <div className="border rounded shadow-sm bg-white mb-8">
+           <h3 className="font-bold text-lg mb-4 text-gray-700 p-4 border-b">Validation Rules Checklist (V1-V20)</h3>
+           <div className="grid grid-cols-3 gap-y-4 gap-x-6 p-4 ml-2">
+              {[
+                { id: "V1", desc: "No (0,0,0) coordinates" },
+                { id: "V2", desc: "Decimal consistency" },
+                { id: "V3", desc: "Bore consistency" },
+                { id: "V4", desc: "BEND CP != EP1" },
+                { id: "V5", desc: "BEND CP != EP2" },
+                { id: "V6", desc: "BEND CP not collinear" },
+                { id: "V7", desc: "BEND equidistant legs" },
+                { id: "V8", desc: "TEE CP at midpoint" },
+                { id: "V9", desc: "TEE CP bore matches" },
+                { id: "V10", desc: "TEE Branch perpendicular" },
+                { id: "V11", desc: "OLET has no end-points" },
+                { id: "V12", desc: "SUPPORT has no CAs" },
+                { id: "V13", desc: "SUPPORT bore is 0" },
+                { id: "V14", desc: "Missing <SKEY>" },
+                { id: "V15", desc: "Coordinate continuity" },
+                { id: "V16", desc: "CA8 usage scope" },
+                { id: "V17", desc: "Reserved" },
+                { id: "V18", desc: "Bore unit (MM/Inch check)" },
+                { id: "V19", desc: "SUPPORT MSG-SQ tokens" },
+                { id: "V20", desc: "SUPPORT GUID Prefix (UCI:)" }
+              ].map(rule => (
+                <label key={rule.id} className="flex items-center space-x-3 text-sm text-gray-800 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                   <input
+                     type="checkbox"
+                     className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                     checked={state.config.validator?.[rule.id] !== false}
+                     onChange={(e) => {
+                        dispatch({
+                          type: 'SET_CONFIG',
+                          payload: {
+                            validator: {
+                              ...state.config.validator,
+                              [rule.id]: e.target.checked
+                            }
+                          }
+                        });
+                     }}
+                   />
+                   <span className="font-semibold w-8">{rule.id}:</span>
+                   <span className="truncate">{rule.desc}</span>
+                </label>
+              ))}
+           </div>
+        </div>
+
         {/* Top Toggles based on Image */}
         <div className="flex space-x-8 mb-6 p-4 bg-blue-50 border border-blue-100 rounded">
           <label className="flex items-center space-x-2 font-semibold text-sm text-blue-900">
