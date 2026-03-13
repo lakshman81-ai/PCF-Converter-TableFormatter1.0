@@ -61,6 +61,23 @@ export function runBasicFixes(dataTable, config, log) {
 
     // Auto-calculate missing CP/BP
     if (type === "TEE" && row.ep1 && row.ep2) {
+       // V9 Auto-fix: Ensure TEE CP bore matches EP bore
+       const epBore = row.ep1.bore ?? row.bore;
+       if (row.cp && epBore !== undefined) {
+         const cpBore = row.cp.bore ?? row.branchBore ?? row.bore;
+         if (cpBore !== undefined && cpBore !== epBore) {
+           const oldCpBore = cpBore;
+           row.cp.bore = epBore;
+           row.branchBore = epBore;
+           if (!row._modified) row._modified = {};
+           row._modified["cp"] = "Syntax Fixed";
+           const msg = `[V9 Fix] Synchronized TEE CP/Branch bore (${oldCpBore}) to match EP bore (${epBore}).`;
+           log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: ${msg}` });
+           row.fixingAction = msg;
+           row.fixingActionTier = 1;
+           row.fixingActionRuleId = "V9";
+         }
+       }
        if (!row._modified) row._modified = {};
 
        if (!row.cp) {
@@ -116,10 +133,39 @@ export function runBasicFixes(dataTable, config, log) {
         }
     }
 
+
+    // V11 Auto-fix: OLET shouldn't have END-POINTs
+    if (type === "OLET") {
+       if (row.ep1 || row.ep2) {
+           if (row.ep1) delete row.ep1;
+           if (row.ep2) delete row.ep2;
+           if (!row._modified) row._modified = {};
+           row._modified["ep1"] = "Syntax Fixed";
+           row._modified["ep2"] = "Syntax Fixed";
+           const msg = `[V11 Fix] Removed invalid END-POINTs from OLET.`;
+           log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: ${msg}` });
+           row.fixingAction = msg;
+           row.fixingActionTier = 1;
+           row.fixingActionRuleId = "V11";
+       }
+    }
     // Assign dummy support coordinate if missing
     if (type === "SUPPORT" && !row.supportCoor && row.ep1) {
        row.supportCoor = { ...row.ep1 };
        log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated SUPPORT_COOR from EP1.` });
+    }
+
+    // V13 Auto-fix: SUPPORT bore must be 0
+    if (type === "SUPPORT" && row.bore !== 0) {
+       const oldBore = row.bore;
+       row.bore = 0;
+       if (!row._modified) row._modified = {};
+       row._modified["bore"] = "Syntax Fixed";
+       const msg = `[V13 Fix] Set SUPPORT bore to 0 (was ${oldBore}).`;
+       log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: ${msg}` });
+       row.fixingAction = msg;
+       row.fixingActionTier = 1;
+       row.fixingActionRuleId = "V13";
     }
 
     // A§17 Bend Angle Calculation

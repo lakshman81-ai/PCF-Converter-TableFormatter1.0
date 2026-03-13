@@ -34,7 +34,7 @@ export function DataTableTab() {
     if (field === 'supportCoor' && !row.supportCoor && type === "SUPPORT") {
        isMissing = true;
     }
-    if (field === 'bore' && !row.bore && type !== "MESSAGE-SQUARE") {
+    if (field === 'bore' && (row.bore === null || row.bore === undefined || row.bore === "") && type !== "MESSAGE-SQUARE" && type !== "SUPPORT") {
        isMissing = true;
     }
 
@@ -42,7 +42,7 @@ export function DataTableTab() {
       base += "bg-red-200 border-red-500 animate-pulse "; // Missing Mandatory
     } else if (row._modified && row._modified[field]) {
       // Direct field-level UI highlighting overrides
-      if (row._modified[field] === "SyntaxFix") {
+      if (row._modified[field] === "SyntaxFix" || row._modified[field] === "Syntax Fixed") {
          base += "bg-green-300 font-bold text-green-900"; // Dark Green
       } else if (row._modified[field] === "Calculated") {
          base += "bg-cyan-100 ";
@@ -129,21 +129,41 @@ export function DataTableTab() {
                       if (!row._modified) row._modified = {};
 
                       // Example Syntax Fix logic based on rule ID
+                      // Reset fixing action if it was just validation
+                      if (row.fixingActionTier === "Val") {
+                          delete row.fixingAction;
+                          delete row.fixingActionTier;
+                          delete row.fixingActionRuleId;
+                      }
+
                       if (err.ruleId === "V2") {
                          // Precision error
                          const oldBore = row.bore;
-                         row.bore = Number(row.bore).toString(); // Normalizing bore string, e.g., 400.0 -> 400
-                         row._modified["bore"] = "SyntaxFix";
-                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Fixed V2 precision error by normalizing bore string. Bore change from ${oldBore} to ${row.bore}.` });
-                         fixedCount++;
+                         const newBore = Number(row.bore).toString();
+                         if (String(oldBore) !== newBore) {
+                             row.bore = newBore;
+                             row._modified["bore"] = "Syntax Fixed";
+                             const msg = `Fixed V2 precision error by normalizing bore string. Bore change from ${oldBore} to ${row.bore}.`;
+                             fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: ${msg}` });
+                             row.fixingAction = msg;
+                             row.fixingActionTier = 1;
+                             row.fixingActionRuleId = "V2";
+                             fixedCount++;
+                         }
                       } else if (err.ruleId === "V1") {
                          // Zero coordinates
                          const oldEp1 = row.ep1 ? `${row.ep1.x}, ${row.ep1.y}, ${row.ep1.z}` : "null";
                          row.ep1 = row.ep1 && (row.ep1.x!==0 || row.ep1.y!==0 || row.ep1.z!==0) ? row.ep1 : {x:0.1, y:0.1, z:0.1};
-                         row._modified["ep1"] = "SyntaxFix";
+                         row._modified["ep1"] = "Syntax Fixed";
                          const newEp1 = `${row.ep1.x}, ${row.ep1.y}, ${row.ep1.z}`;
-                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Fixed V1 by padding zero coordinates. EP1 change from ${oldEp1} to ${newEp1}.` });
-                         fixedCount++;
+                         if (oldEp1 !== newEp1) {
+                             const msg = `Fixed V1 by padding zero coordinates. EP1 change from ${oldEp1} to ${newEp1}.`;
+                             fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: ${msg}` });
+                             row.fixingAction = msg;
+                             row.fixingActionTier = 1;
+                             row.fixingActionRuleId = "V1";
+                             fixedCount++;
+                         }
                       } else {
                          // We do not have auto-fixes defined for this rule yet.
                          // Do NOT flag it as fixed and do not highlight it in green.
@@ -156,6 +176,7 @@ export function DataTableTab() {
                    dispatch({ type: 'SET_DATA_TABLE', payload: fixedTable });
                    fixLogs.forEach(l => dispatch({ type: 'ADD_LOG_ENTRY', payload: l }));
                    dispatch({ type: 'ADD_LOG_ENTRY', payload: { type: "Info", stage: 3, message: `Syntax Fixer complete. Applied ${fixedCount} actual corrections in dark green.` }});
+                   dispatch({ type: 'SET_SYNTAX_CHECKED', payload: true }); // Enable export buttons
                 }}
              >
                 Syntax Fix
