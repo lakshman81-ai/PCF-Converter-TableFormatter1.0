@@ -41,16 +41,20 @@ export function DataTableTab() {
     if (isMissing) {
       base += "bg-red-200 border-red-500 animate-pulse "; // Missing Mandatory
     } else if (row._modified && row._modified[field]) {
-      // If it says "SyntaxFix", use dark green
+      // Direct field-level UI highlighting overrides
       if (row._modified[field] === "SyntaxFix") {
-         base += "bg-green-300 font-bold ";
+         base += "bg-green-300 font-bold text-green-900"; // Dark Green
+      } else if (row._modified[field] === "Calculated") {
+         base += "bg-cyan-100 ";
+      } else if (row._modified[field] === "Mock") {
+         base += "bg-green-100 "; // Light Green
       } else {
          base += "bg-amber-100"; // General Modified
       }
     } else if (row._logTags?.includes("Calculated") && field !== "type") {
-      base += "bg-cyan-100"; // Calculated
+      base += "bg-cyan-100"; // Calculated fallback
     } else if (row._logTags?.includes("Mock")) {
-      base += "bg-green-100"; // Mock / Assumed (Changed to light green per request)
+      base += "bg-green-100"; // Mock fallback
     } else if (row._source === "PTE" && row.type === "PIPE" && row._logTags?.includes("Implicit")) {
       base += "bg-purple-100"; // PTE Implicit
     }
@@ -110,6 +114,7 @@ export function DataTableTab() {
                    let fixedTable = [...data];
                    let fixedCount = 0;
 
+                   const fixLogs = [];
                    for (const err of errors) {
                       const rowIdx = err.row;
                       if (!rowIdx) continue;
@@ -123,15 +128,18 @@ export function DataTableTab() {
                       if (err.ruleId === "V2") {
                          // Pad SKEY if length is wrong or precision is wrong
                          row._modified["bore"] = "SyntaxFix";
+                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Fixed V2 precision error by normalizing bore string.` });
                          fixedCount++;
                       } else if (err.ruleId === "V1") {
                          // Zero coordinates
                          row.ep1 = row.ep1 && (row.ep1.x!==0 || row.ep1.y!==0 || row.ep1.z!==0) ? row.ep1 : {x:0.1, y:0.1, z:0.1};
                          row._modified["ep1"] = "SyntaxFix";
+                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Fixed V1 by padding zero coordinates.` });
                          fixedCount++;
                       } else {
                          // Generic fix marker
                          row._modified["type"] = "SyntaxFix";
+                         fixLogs.push({ type: "Fix", stage: 3, row: rowIdx, message: `Row ${rowIdx}: Applied syntax fix for rule ${err.ruleId}.` });
                          fixedCount++;
                       }
 
@@ -139,7 +147,8 @@ export function DataTableTab() {
                    }
 
                    dispatch({ type: 'SET_DATA_TABLE', payload: fixedTable });
-                   dispatch({ type: 'ADD_LOG_ENTRY', payload: { type: "Fix", stage: 3, message: `Syntax Fixer applied ${fixedCount} automated corrections. Highlighted in dark green.` }});
+                   fixLogs.forEach(l => dispatch({ type: 'ADD_LOG_ENTRY', payload: l }));
+                   dispatch({ type: 'ADD_LOG_ENTRY', payload: { type: "Info", stage: 3, message: `Syntax Fixer complete. Applied ${fixedCount} corrections in dark green.` }});
                 }}
              >
                 Syntax Fix

@@ -17,11 +17,23 @@ export function runBasicFixes(dataTable, config, log) {
       row.csvSeqNo = row.ca?.[98] || row._rowIndex.toString();
     }
 
-    // Step 3: Bore unit conversion
+    // Step 3: Bore unit conversion & Interpolation
+    if (!row.bore) {
+       // Interpolate from neighbors
+       const prev = i > 0 ? result[i - 1] : null;
+       const next = i < result.length - 1 ? result[i + 1] : null;
+       if (prev && next && prev.bore && next.bore && prev.bore === next.bore) {
+          row.bore = prev.bore;
+          if (!row._modified) row._modified = {};
+          row._modified["bore"] = "Calculated";
+          log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-filled missing Bore (${row.bore}) from adjacent rows.` });
+       }
+    }
+
     if (row.bore != null && row.bore <= (config.smartFixer?.maxBoreForInchDetection ?? 48)) {
       const standardMM = new Set([15, 20, 25, 32, 40, 50, 65, 80, 90, 100, 125, 150, 200, 250, 300, 350, 400, 450, 500, 600, 750, 900, 1050, 1200]);
       if (!standardMM.has(row.bore)) {
-        log.push({ type: "Fix", message: `Row ${row._rowIndex}: Converted bore ${row.bore}in to ${row.bore * 25.4}mm` });
+        log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Converted bore ${row.bore}in to ${row.bore * 25.4}mm` });
         row.bore = row.bore * 25.4;
       }
     }
@@ -32,9 +44,11 @@ export function runBasicFixes(dataTable, config, log) {
        row.deltaY = row.ep2.y - row.ep1.y;
        row.deltaZ = row.ep2.z - row.ep1.z;
 
-       if (Math.abs(row.deltaX) > 0.5) { row.len1 = row.deltaX; row.axis1 = row.deltaX > 0 ? "East" : "West"; }
-       if (Math.abs(row.deltaY) > 0.5) { row.len2 = row.deltaY; row.axis2 = row.deltaY > 0 ? "North" : "South"; }
-       if (Math.abs(row.deltaZ) > 0.5) { row.len3 = row.deltaZ; row.axis3 = row.deltaZ > 0 ? "Up" : "Down"; }
+       if (!row._modified) row._modified = {};
+
+       if (Math.abs(row.deltaX) > 0.5) { row.len1 = row.deltaX; row.axis1 = row.deltaX > 0 ? "East" : "West"; row._modified["len1"] = "Calculated"; row._modified["axis1"] = "Calculated"; }
+       if (Math.abs(row.deltaY) > 0.5) { row.len2 = row.deltaY; row.axis2 = row.deltaY > 0 ? "North" : "South"; row._modified["len2"] = "Calculated"; row._modified["axis2"] = "Calculated"; }
+       if (Math.abs(row.deltaZ) > 0.5) { row.len3 = row.deltaZ; row.axis3 = row.deltaZ > 0 ? "Up" : "Down"; row._modified["len3"] = "Calculated"; row._modified["axis3"] = "Calculated"; }
 
        if (!row._logTags) row._logTags = [];
        row._logTags.push("Calculated");
@@ -45,12 +59,15 @@ export function runBasicFixes(dataTable, config, log) {
 
     // Auto-calculate missing CP/BP
     if (type === "TEE" && row.ep1 && row.ep2) {
+       if (!row._modified) row._modified = {};
+
        if (!row.cp) {
            row.cp = {
                x: (row.ep1.x + row.ep2.x) / 2,
                y: (row.ep1.y + row.ep2.y) / 2,
                z: (row.ep1.z + row.ep2.z) / 2
            };
+           row._modified["cp"] = "Calculated";
            log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated TEE CP as midpoint.` });
        }
        if (!row.bp && row.cp) {
@@ -58,6 +75,7 @@ export function runBasicFixes(dataTable, config, log) {
            // A§8 Formula: BP = CP + (brlen * perpendicular_vector)
            const brlen = row.brlen || (row.bore || 100);
            row.bp = { x: row.cp.x, y: row.cp.y, z: row.cp.z + brlen }; // Assuming vertical Z for simplicity in generic auto-fix
+           row._modified["bp"] = "Mock";
            log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated TEE BP dummy vertical offset.` });
        }
     }
@@ -70,6 +88,28 @@ export function runBasicFixes(dataTable, config, log) {
            z: (row.ep1.z + row.ep2.z) / 2
         };
         log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated BEND CP fallback as midpoint.` });
+    }
+
+    // SKEY Auto-fill mapping
+    if (!row.skey && !["PIPE", "MESSAGE-SQUARE", "SUPPORT"].includes(type)) {
+        const skeyMap = {
+            "TEE": "TEWW",
+            "ELBOW": "ELBW",
+            "BEND": "ELBW",
+            "FLANGE": "FLWN",
+            "VALVE": "VVFL",
+            "GASKET": "GASK",
+            "REDUCER-CONCENTRIC": "RCBW",
+            "REDUCER-ECCENTRIC": "REBW",
+            "OLET": "OLBW",
+            "CAP": "CAWW"
+        };
+        if (skeyMap[type]) {
+            row.skey = skeyMap[type];
+            if (!row._modified) row._modified = {};
+            row._modified["skey"] = "Calculated";
+            log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-filled default SKEY (${row.skey}) for ${type}.` });
+        }
     }
 
     // Assign dummy support coordinate if missing

@@ -175,6 +175,7 @@ function App() {
 
                                const dataTable = parseElementCSV(mappedInput, columnMap);
                                dispatch({ type: 'SET_DATA_TABLE', payload: dataTable });
+                               dispatch({ type: 'ADD_LOG_ENTRY', payload: { type: "Info", stage: 2, message: `Mock JSON explicitly loaded via Element Parser. Created ${dataTable.length} rows.` } });
                              } catch (e) {
                                alert("Failed to load Mock JSON: " + e.message);
                              }
