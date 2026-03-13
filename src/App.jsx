@@ -119,17 +119,28 @@ function App() {
                           onClick={async () => {
                              try {
                                const { default: BM_DATA } = await import('./tests/benchmark_data.json', { with: { type: "json" } });
-                               // Find any benchmark that has a "CSV SEQ NO" or "Sequence" in its input indicating it's raw CSV data
-                               const mockTest = BM_DATA.find(b => b.input?.length > 0 && b.input[0]["CSV SEQ NO"] || b.input?.[0]["Sequence"]);
-                               const data = mockTest ? mockTest.input : [];
-                               if (data.length === 0) {
-                                   // Fallback: generate a dummy row so it doesn't crash if benchmark_data has no raw CSV tests
-                                   data.push({
-                                      "Sequence": 1, "Type": "PIPE", "PIPELINE": "TEST-LINE-1",
-                                      "BORE": 100, "EP1 COORDS": "0 0 0", "EP2 COORDS": "1000 0 0",
-                                      "CA1": "TEST-CA1", "CA8": "15.5"
-                                   });
+                               // Get all element CSV tests
+                               const mockTests = BM_DATA.filter(b => b.input?.length > 0 && (b.input[0]["CSV SEQ NO"] || b.input[0]["Sequence"]));
+
+                               if (mockTests.length === 0) {
+                                  alert("No mock data tests found.");
+                                  return;
                                }
+
+                               // Simple browser prompt to pick which BM to load
+                               const testNames = mockTests.map((b, i) => `${i+1}: ${b.id} - ${b.description}`).join('\n');
+                               const selection = window.prompt(`Which Benchmark Data to load?\nEnter a number (1-${mockTests.length}):\n\n${testNames}`);
+
+                               if (!selection) return; // Cancelled
+
+                               const idx = parseInt(selection) - 1;
+                               if (isNaN(idx) || idx < 0 || idx >= mockTests.length) {
+                                  alert("Invalid selection.");
+                                  return;
+                               }
+
+                               const mockTest = mockTests[idx];
+                               const data = mockTest.input;
 
                                const { parseElementCSV } = await import('./core/parsers/elementCSV');
 

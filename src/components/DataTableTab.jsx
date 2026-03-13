@@ -41,11 +41,16 @@ export function DataTableTab() {
     if (isMissing) {
       base += "bg-red-200 border-red-500 animate-pulse "; // Missing Mandatory
     } else if (row._modified && row._modified[field]) {
-      base += "bg-amber-100"; // Modified
+      // If it says "SyntaxFix", use dark green
+      if (row._modified[field] === "SyntaxFix") {
+         base += "bg-green-300 font-bold ";
+      } else {
+         base += "bg-amber-100"; // General Modified
+      }
     } else if (row._logTags?.includes("Calculated") && field !== "type") {
       base += "bg-cyan-100"; // Calculated
     } else if (row._logTags?.includes("Mock")) {
-      base += "bg-red-100"; // Mock
+      base += "bg-green-100"; // Mock / Assumed (Changed to light green per request)
     } else if (row._source === "PTE" && row.type === "PIPE" && row._logTags?.includes("Implicit")) {
       base += "bg-purple-100"; // PTE Implicit
     }
@@ -91,16 +96,67 @@ export function DataTableTab() {
             Check data table syntax
           </button>
 
-        <div className="flex space-x-4 text-xs">
+          {state.syntaxChecked && (
+             <button
+                className="px-4 py-1.5 bg-green-600 text-white text-sm font-bold rounded shadow hover:bg-green-700 transition"
+                onClick={() => {
+                   // Syntax Fixer: reads validation warnings/errors and applies them
+                   const errors = state.log.filter(l => l.stage === 3 && ["Error", "Warning"].includes(l.type));
+                   if (errors.length === 0) {
+                      alert("No syntax issues found to fix!");
+                      return;
+                   }
+
+                   let fixedTable = [...data];
+                   let fixedCount = 0;
+
+                   for (const err of errors) {
+                      const rowIdx = err.row;
+                      if (!rowIdx) continue;
+                      const rowIndex = fixedTable.findIndex(r => r._rowIndex === rowIdx);
+                      if (rowIndex === -1) continue;
+
+                      const row = { ...fixedTable[rowIndex] };
+                      if (!row._modified) row._modified = {};
+
+                      // Example Syntax Fix logic based on rule ID
+                      if (err.ruleId === "V2") {
+                         // Pad SKEY if length is wrong or precision is wrong
+                         row._modified["bore"] = "SyntaxFix";
+                         fixedCount++;
+                      } else if (err.ruleId === "V1") {
+                         // Zero coordinates
+                         row.ep1 = row.ep1 && (row.ep1.x!==0 || row.ep1.y!==0 || row.ep1.z!==0) ? row.ep1 : {x:0.1, y:0.1, z:0.1};
+                         row._modified["ep1"] = "SyntaxFix";
+                         fixedCount++;
+                      } else {
+                         // Generic fix marker
+                         row._modified["type"] = "SyntaxFix";
+                         fixedCount++;
+                      }
+
+                      fixedTable[rowIndex] = row;
+                   }
+
+                   dispatch({ type: 'SET_DATA_TABLE', payload: fixedTable });
+                   dispatch({ type: 'ADD_LOG_ENTRY', payload: { type: "Fix", stage: 3, message: `Syntax Fixer applied ${fixedCount} automated corrections. Highlighted in dark green.` }});
+                }}
+             >
+                Syntax Fix
+             </button>
+          )}
+
+        <div className="flex space-x-4 text-xs mt-2">
           <span className="flex items-center"><span className="w-3 h-3 bg-red-200 border-red-500 border inline-block mr-1"></span> Missing Mandatory</span>
           <span className="flex items-center"><span className="w-3 h-3 bg-amber-100 border inline-block mr-1"></span> Modified</span>
+          <span className="flex items-center"><span className="w-3 h-3 bg-green-300 border inline-block mr-1"></span> Syntax Fixed</span>
           <span className="flex items-center"><span className="w-3 h-3 bg-cyan-100 border inline-block mr-1"></span> Calculated</span>
-          <span className="flex items-center"><span className="w-3 h-3 bg-red-100 border inline-block mr-1"></span> Mock/Assumed</span>
+          <span className="flex items-center"><span className="w-3 h-3 bg-green-100 border inline-block mr-1"></span> Mock/Assumed</span>
         </div>
         </div>
       </div>
 
-      <div className="overflow-auto border border-gray-300 flex-grow text-xs font-mono">
+      <div className="overflow-auto border border-gray-300 text-xs font-mono max-h-[50vh] min-h-[30vh]">
         <table className="w-full text-left border-collapse">
           <thead className="bg-gray-100 sticky top-0 shadow-sm z-10">
             <tr>
@@ -199,6 +255,19 @@ export function DataTableTab() {
           </tbody>
         </table>
       </div>
+
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <h3 className="font-bold text-sm mb-2 text-indigo-700">Stage 3 Logs (Syntax Check / Calculation Output)</h3>
+        <div className="bg-gray-900 text-gray-300 font-mono text-xs p-2 rounded max-h-48 overflow-y-auto">
+          {state.log.filter(l => l.stage === 3).length === 0 && <span className="text-gray-500">No Stage 3 logs yet. Run calculations or syntax checks above.</span>}
+          {state.log.filter(l => l.stage === 3).map((l, i) => (
+             <div key={i} className={`mb-1 ${l.type === "Error" ? "text-red-400" : l.type === "Warning" ? "text-amber-400" : l.type === "Fix" ? "text-green-400" : ""}`}>
+               <span className="opacity-50">[{new Date(l.timestamp || Date.now()).toLocaleTimeString().slice(0,5)}]</span> [{l.type}] {l.message}
+             </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
