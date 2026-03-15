@@ -1,7 +1,32 @@
+import { useState } from 'react';
 import { useAppContext } from '../core/state';
 
 export function ConfigTab() {
   const { state, dispatch } = useAppContext();
+
+  // Local state for JSON inputs so they can be typed into freely
+  const [teeSkeyMapInput, setTeeSkeyMapInput] = useState(() => JSON.stringify(state.config.teeSkeyMap || []));
+  const [supportGuidMapInput, setSupportGuidMapInput] = useState(() => JSON.stringify(state.config.supportGuidMapping || {}));
+
+  // Derive unique headers and sizes from dataTable for dropdowns/UI
+  const headers = new Set();
+  const teeSizes = new Set();
+  if (state.dataTable) {
+     state.dataTable.forEach(row => {
+         Object.keys(row).forEach(k => {
+             if (k !== 'ca' && k !== 'ep1' && k !== 'ep2' && k !== 'cp' && k !== 'bp' && k !== 'supportCoor') {
+                 headers.add(k);
+             }
+         });
+         if (row.ca) Object.keys(row.ca).forEach(k => headers.add(`ca.${k}`));
+
+         if ((row.type || "").toUpperCase() === "TEE" && row.bore !== undefined && row.bore !== null) {
+             teeSizes.add(row.bore);
+         }
+     });
+  }
+  const availableHeaders = Array.from(headers).sort();
+  const availableTeeSizes = Array.from(teeSizes).sort((a,b) => a-b);
 
   const handleConfigChange = (section, field, value) => {
     dispatch({
@@ -117,22 +142,143 @@ export function ConfigTab() {
         </div>
 
         {/* Formatting Config */}
-        <div className="flex items-center space-x-4 mb-6 border-b pb-6">
-           <label className="font-semibold text-sm text-gray-700 w-48">Export Formatting:</label>
-           <label className="flex items-center space-x-2 text-sm text-gray-800">
-             <input
-                type="checkbox"
-                className="form-checkbox h-4 w-4 text-blue-600 rounded"
-                checked={state.config.strictIsogen === true}
-                onChange={(e) => {
-                   dispatch({
-                      type: 'SET_CONFIG',
-                      payload: { strictIsogen: e.target.checked }
-                   });
-                }}
-             />
-             <span>Strict ISOGEN Mode (Removes &lt; &gt; wrappers, ensures benchmark exact compliance)</span>
-           </label>
+        <div className="mb-6 border-b pb-6">
+           <div className="flex items-center space-x-4 mb-4">
+               <label className="font-semibold text-sm text-gray-700 w-48">Export Formatting:</label>
+               <label className="flex items-center space-x-2 text-sm text-gray-800">
+                 <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                    checked={state.config.strictIsogen === true}
+                    onChange={(e) => {
+                       dispatch({
+                          type: 'SET_CONFIG',
+                          payload: { strictIsogen: e.target.checked }
+                       });
+                    }}
+                 />
+                 <span>Customizable ISOGEN mode</span>
+               </label>
+           </div>
+
+           {state.config.strictIsogen && (
+             <>
+               <div className="pl-52 grid grid-cols-2 gap-4">
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disableCAs || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disableCAs: e.target.checked } })} />
+                     <span>Disable CAs (1-10, 97, 98)</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disableMessageSquare || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disableMessageSquare: e.target.checked } })} />
+                     <span>Disable Message Squares</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disablePipelineReference || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disablePipelineReference: e.target.checked } })} />
+                     <span>Disable Pipeline Reference</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disableOletBlocks || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disableOletBlocks: e.target.checked } })} />
+                     <span>Disable OLET Blocks</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disableZeroLength || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disableZeroLength: e.target.checked } })} />
+                     <span>Disable Zero Length Components</span>
+                  </label>
+               </div>
+
+               <div className="pl-52 mt-4">
+                   <label className="block text-sm font-semibold text-gray-700 mb-1">Custom Header (overrides defaults if not empty):</label>
+                   <textarea
+                      className="w-full border p-2 rounded text-sm h-24"
+                      placeholder="ISOGEN-FILES ISOGEN.FLS\nUNITS-BORE MM\n..."
+                      value={state.config.customHeader || ""}
+                      onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { customHeader: e.target.value } })}
+                   />
+               </div>
+
+               <div className="pl-52 mt-4 space-y-4">
+                  <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                          TEE SKEY Mapping (JSON format: [{`"bore": 100, "skey": "TEFL"`}])
+                          {availableTeeSizes.length > 0 && <span className="text-gray-500 font-normal ml-2">Available TEE sizes: {availableTeeSizes.join(', ')}</span>}
+                      </label>
+                      <input type="text" className="w-full border p-2 rounded text-sm"
+                         placeholder='[{"bore": 100, "skey": "TEFL"}]'
+                         value={teeSkeyMapInput}
+                         onChange={(e) => setTeeSkeyMapInput(e.target.value)}
+                         onBlur={(e) => {
+                             try {
+                                 const parsed = JSON.parse(e.target.value);
+                                 if (Array.isArray(parsed)) {
+                                     dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: parsed } });
+                                 }
+                             } catch (e) {
+                                 console.log(e);
+                                 // Revert back to valid state if invalid on blur
+                                 setTeeSkeyMapInput(JSON.stringify(state.config.teeSkeyMap || []));
+                             }
+                         }}
+                      />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">Support GUID Mapping Column:</label>
+                          <select
+                              className="w-full border p-2 rounded text-sm"
+                              value={state.config.supportGuidMappingColumn || ""}
+                              onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { supportGuidMappingColumn: e.target.value } })}
+                          >
+                              <option value="">-- Select Column --</option>
+                              {availableHeaders.length > 0 ? (
+                                  availableHeaders.map(h => <option key={h} value={h}>{h}</option>)
+                              ) : (
+                                  <>
+                                      <option value="1">Component Attribute 1</option>
+                                      <option value="2">Component Attribute 2</option>
+                                      <option value="3">Component Attribute 3</option>
+                                      <option value="4">Component Attribute 4</option>
+                                      <option value="5">Component Attribute 5</option>
+                                      <option value="text">Message Square Text</option>
+                                      <option value="supportName">Support Name</option>
+                                  </>
+                              )}
+                          </select>
+                      </div>
+                      <div>
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">Support GUID Mapping (JSON format: {`{"Rest": "GUID:REST-1"}`}):</label>
+                          <input type="text" className="w-full border p-2 rounded text-sm"
+                             placeholder='{"Rest": "GUID:REST-1", "Guide": "GUID:GD-1"}'
+                             value={supportGuidMapInput}
+                             onChange={(e) => setSupportGuidMapInput(e.target.value)}
+                             onBlur={(e) => {
+                                 try {
+                                     const parsed = JSON.parse(e.target.value);
+                                     if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+                                         dispatch({ type: 'SET_CONFIG', payload: { supportGuidMapping: parsed } });
+                                     }
+                                 } catch (e) {
+                                     console.log(e);
+                                     // Revert to valid state on blur if invalid
+                                     setSupportGuidMapInput(JSON.stringify(state.config.supportGuidMapping || {}));
+                                 }
+                             }}
+                          />
+                      </div>
+                  </div>
+               </div>
+             </>
+           )}
         </div>
 
         {/* Row 1: Bore and Sweep Configs */}

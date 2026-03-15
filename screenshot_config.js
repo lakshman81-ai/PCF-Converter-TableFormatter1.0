@@ -1,4 +1,4 @@
-import { test, expect, chromium } from '@playwright/test';
+import { chromium } from '@playwright/test';
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -6,7 +6,7 @@ import { test, expect, chromium } from '@playwright/test';
     viewport: { width: 1280, height: 1000 }
   });
 
-  await page.goto('http://localhost:3000/');
+  await page.goto('http://localhost:5173/');
   await page.waitForTimeout(1000);
 
   try {
@@ -16,7 +16,7 @@ import { test, expect, chromium } from '@playwright/test';
   }
 
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: '/home/jules/verification/config_snap3.png', fullPage: true });
+  await page.screenshot({ path: '/app/config_snap_final.png', fullPage: true });
 
   await browser.close();
 })();

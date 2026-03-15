@@ -5,6 +5,7 @@ import BENCHMARK_DATA from './benchmark_data.json';
 const CONFIG_MOCK = {
   decimals: 4,
   angleFormat: "degrees",
+  strictIsogen: false, // Legacy benchmarks require legacy syntax format.
   pte: { sequentialData: true, lineKeyEnabled: true },
   brlenEqualTee: [ { bore: 300, C: 304 } ], // For BM-SF-48
   smartFixer: {

@@ -5,7 +5,16 @@ const DEFAULT_CONFIG = {
   decimals: 4,
   angleFormat: "degrees",
   crlfMode: true,
-  strictIsogen: false,
+  strictIsogen: true,
+  disableCAs: false,
+  disableMessageSquare: false,
+  disablePipelineReference: false,
+  disableOletBlocks: false,
+  disableZeroLength: false,
+  customHeader: "",
+  teeSkeyMap: [], // [{ bore: 100, skey: "TEFL" }]
+  supportGuidMappingColumn: "", // which column in CSV contains the keyword
+  supportGuidMapping: {}, // { "Rest": "GUID:REST-1", "Guide": "GUID:GD-1" }
   autoMultiPassMode: false, // Overall toggle
   operatingMode: "Auto", // Auto, Sequential, Non-Sequential
   pte: {

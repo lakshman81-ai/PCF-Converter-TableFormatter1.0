@@ -19,7 +19,13 @@ export function generatePcf(dataTable, config) {
   }
 
   // === HEADER ===
-  if (config.strictIsogen) {
+  if (config.customHeader && config.customHeader.trim() !== "") {
+      const customLines = config.customHeader.split("\n");
+      for (const line of customLines) {
+          lines.push(line.replace(/\r/g, ""));
+      }
+      lines.push("");
+  } else if (config.strictIsogen) {
     let addedPipelineRef = false;
     const hasStandardHeaders = validatedTable.some(r => ["ISOGEN-FILES", "UNITS-BORE"].includes(r.type));
 
@@ -71,14 +77,24 @@ export function generatePcf(dataTable, config) {
 
     // Output Message squares as well
     if (row.type === "MESSAGE-SQUARE") {
-      lines.push(`MESSAGE-SQUARE ${row.text || ""}`);
+      if (!config.disableMessageSquare) {
+          lines.push(`MESSAGE-SQUARE ${row.text || ""}`);
+      }
       continue;
     }
 
     const compType = (row.type || "UNKNOWN").toUpperCase();
 
+    // Check disable flags
+    if (config.disableOletBlocks && compType === "OLET") continue;
+
+    // Check disableZeroLength for components with length (PIPE, etc)
+    if (config.disableZeroLength && row.length !== undefined && Math.abs(Number(row.length)) < 0.0001) {
+        continue;
+    }
+
     const msg = row.text || buildMessageSquare(row, config.strictIsogen);
-    if (msg) {
+    if (msg && !config.disableMessageSquare) {
       lines.push("MESSAGE-SQUARE");
       lines.push(`    ${msg}`);
     }
@@ -86,6 +102,25 @@ export function generatePcf(dataTable, config) {
     // SUPPORT block logic
     if (compType === "SUPPORT") {
       lines.push("SUPPORT");
+
+      let guid = row.supportGuid || "";
+      if (config.supportGuidMappingColumn && config.supportGuidMapping) {
+          let colValue = "";
+          if (config.supportGuidMappingColumn.startsWith('ca.')) {
+              const caKey = config.supportGuidMappingColumn.split('.')[1];
+              colValue = String(row.ca?.[caKey] || "");
+          } else {
+              colValue = String(row[config.supportGuidMappingColumn] || row.ca?.[config.supportGuidMappingColumn] || "");
+          }
+
+          for (const key in config.supportGuidMapping) {
+              if (colValue.includes(key)) {
+                  guid = config.supportGuidMapping[key];
+                  break;
+              }
+          }
+      }
+
       if (config.strictIsogen) {
           lines.push(`    CO-ORDS  ${fmtCoordWithoutBore(row.supportCoor, dec, true)}`);
           if (row.supportName) lines.push(`    <SUPPORT_NAME>  ${row.supportName}`);
@@ -93,18 +128,18 @@ export function generatePcf(dataTable, config) {
           let itemCode = row.itemCode;
           if (itemCode) lines.push(`    ITEM-CODE ${itemCode}`);
 
-          const val = row.ca?.[1];
-          if (val !== null && val !== undefined && val !== "") {
-              lines.push(`    COMPONENT-ATTRIBUTE1 ${val}`);
+          if (!config.disableCAs) {
+            const val = row.ca?.[1];
+            if (val !== null && val !== undefined && val !== "") {
+                lines.push(`    COMPONENT-ATTRIBUTE1 ${val}`);
+            }
           }
 
-          let guid = row.supportGuid || "";
           if (guid && !guid.startsWith("UCI:")) guid = `UCI:${guid}`;
           if (guid) lines.push(`    MESSAGE-SQUARE ${guid}`);
       } else {
           lines.push(`    CO-ORDS    ${fmtCoord(row.supportCoor, 0, dec)}`);
           if (row.supportName) lines.push(`    <SUPPORT_NAME>    ${row.supportName}`);
-          let guid = row.supportGuid || "";
           if (guid && !guid.startsWith("UCI:")) guid = `UCI:${guid}`;
           if (guid) lines.push(`    <SUPPORT_GUID>    ${guid}`);
       }
@@ -149,8 +184,17 @@ export function generatePcf(dataTable, config) {
         }
 
         // 4. SKEY
-        if (row.skey) {
-          lines.push(`    SKEY ${row.skey}`);
+        let skey = row.skey;
+        if (compType === "TEE" && config.teeSkeyMap && config.teeSkeyMap.length > 0) {
+            for (const map of config.teeSkeyMap) {
+                if (map.bore && (row.bore === map.bore || row.bore === Number(map.bore))) {
+                    skey = map.skey;
+                    break;
+                }
+            }
+        }
+        if (skey) {
+          lines.push(`    SKEY ${skey}`);
         }
 
         // 5. ITEM-CODE
@@ -159,7 +203,7 @@ export function generatePcf(dataTable, config) {
           lines.push(`    ITEM-CODE ${itemCode}`);
         }
 
-        if (compType === "PIPE" && row.pipelineRef && row.pipelineRef !== globalPipelineRef) {
+        if (compType === "PIPE" && row.pipelineRef && row.pipelineRef !== globalPipelineRef && !config.disablePipelineReference) {
           lines.push(`    PIPELINE-REFERENCE ${row.pipelineRef}`);
         }
 
@@ -175,12 +219,14 @@ export function generatePcf(dataTable, config) {
         }
 
         // 6. COMPONENT-ATTRIBUTES
-        const caKeys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 97, 98];
-        for (const k of caKeys) {
-          const val = row.ca?.[k];
-          if (val !== null && val !== undefined && val !== "") {
-            lines.push(`    COMPONENT-ATTRIBUTE${k} ${val}`);
-          }
+        if (!config.disableCAs) {
+            const caKeys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 97, 98];
+            for (const k of caKeys) {
+              const val = row.ca?.[k];
+              if (val !== null && val !== undefined && val !== "") {
+                lines.push(`    COMPONENT-ATTRIBUTE${k} ${val}`);
+              }
+            }
         }
     } else {
         // GEOMETRY (Legacy)
@@ -202,12 +248,21 @@ export function generatePcf(dataTable, config) {
           }
         }
 
-        if (compType === "PIPE" && row.pipelineRef && row.pipelineRef !== globalPipelineRef) {
+        if (compType === "PIPE" && row.pipelineRef && row.pipelineRef !== globalPipelineRef && !config.disablePipelineReference) {
           lines.push(`    PIPELINE-REFERENCE ${row.pipelineRef}`);
         }
 
-        if (row.skey) {
-          lines.push(`    <SKEY>  ${row.skey}`);
+        let skey = row.skey;
+        if (compType === "TEE" && config.teeSkeyMap && config.teeSkeyMap.length > 0) {
+            for (const map of config.teeSkeyMap) {
+                if (map.bore && (row.bore === map.bore || row.bore === Number(map.bore))) {
+                    skey = map.skey;
+                    break;
+                }
+            }
+        }
+        if (skey) {
+          lines.push(`    <SKEY>  ${skey}`);
         }
 
         if (compType === "BEND" && row.angle) {
@@ -222,14 +277,16 @@ export function generatePcf(dataTable, config) {
         }
 
         // CAs (skip 8 for PIPE/SUPPORT)
-        const caKeys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 97, 98];
-        for (const k of caKeys) {
-          if (k === 8 && ["PIPE", "SUPPORT"].includes(compType)) continue;
+        if (!config.disableCAs) {
+            const caKeys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 97, 98];
+            for (const k of caKeys) {
+              if (k === 8 && ["PIPE", "SUPPORT"].includes(compType)) continue;
 
-          const val = row.ca?.[k];
-          if (val !== null && val !== undefined && val !== "") {
-            lines.push(`    COMPONENT-ATTRIBUTE${k}    ${val}`);
-          }
+              const val = row.ca?.[k];
+              if (val !== null && val !== undefined && val !== "") {
+                lines.push(`    COMPONENT-ATTRIBUTE${k}    ${val}`);
+              }
+            }
         }
     }
 
