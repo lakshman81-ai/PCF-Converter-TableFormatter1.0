@@ -1,12 +1,7 @@
-import { useState } from 'react';
 import { useAppContext } from '../core/state';
 
 export function ConfigTab() {
   const { state, dispatch } = useAppContext();
-
-  // Local state for JSON inputs so they can be typed into freely
-  const [teeSkeyMapInput, setTeeSkeyMapInput] = useState(() => JSON.stringify(state.config.teeSkeyMap || []));
-  const [supportGuidMapInput, setSupportGuidMapInput] = useState(() => JSON.stringify(state.config.supportGuidMapping || {}));
 
   // Derive unique headers and sizes from dataTable for dropdowns/UI
   const headers = new Set();
@@ -206,36 +201,72 @@ export function ConfigTab() {
                    />
                </div>
 
-               <div className="pl-52 mt-4 space-y-4">
+               <div className="pl-52 mt-4 space-y-6">
                   <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-1">
-                          TEE SKEY Mapping (JSON format: [{`"bore": 100, "skey": "TEFL"`}])
-                          {availableTeeSizes.length > 0 && <span className="text-gray-500 font-normal ml-2">Available TEE sizes: {availableTeeSizes.join(', ')}</span>}
-                      </label>
-                      <input type="text" className="w-full border p-2 rounded text-sm"
-                         placeholder='[{"bore": 100, "skey": "TEFL"}]'
-                         value={teeSkeyMapInput}
-                         onChange={(e) => setTeeSkeyMapInput(e.target.value)}
-                         onBlur={(e) => {
-                             try {
-                                 const parsed = JSON.parse(e.target.value);
-                                 if (Array.isArray(parsed)) {
-                                     dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: parsed } });
-                                 }
-                             } catch (e) {
-                                 console.log(e);
-                                 // Revert back to valid state if invalid on blur
-                                 setTeeSkeyMapInput(JSON.stringify(state.config.teeSkeyMap || []));
-                             }
-                         }}
-                      />
+                      <div className="flex justify-between items-center mb-2">
+                          <label className="block text-sm font-semibold text-gray-700">
+                              TEE SKEY Mapping
+                          </label>
+                          <button
+                             className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-semibold"
+                             onClick={() => {
+                                 const currentMap = state.config.teeSkeyMap || [];
+                                 dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: [...currentMap, { bore: "", skey: "" }] } });
+                             }}
+                          >
+                             + Add Mapping
+                          </button>
+                      </div>
+
+                      <div className="space-y-2">
+                          {(state.config.teeSkeyMap || []).map((mapping, idx) => (
+                              <div key={idx} className="flex items-center space-x-2">
+                                  <select
+                                      className="border p-1.5 rounded text-sm w-32"
+                                      value={mapping.bore || ""}
+                                      onChange={(e) => {
+                                          const newMap = [...(state.config.teeSkeyMap || [])];
+                                          newMap[idx].bore = e.target.value;
+                                          dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: newMap } });
+                                      }}
+                                  >
+                                      <option value="">-- Bore --</option>
+                                      {availableTeeSizes.map(size => <option key={size} value={size}>{size}</option>)}
+                                  </select>
+                                  <input
+                                      type="text"
+                                      className="border p-1.5 rounded text-sm flex-1"
+                                      placeholder="SKEY (e.g. TEFL)"
+                                      value={mapping.skey || ""}
+                                      onChange={(e) => {
+                                          const newMap = [...(state.config.teeSkeyMap || [])];
+                                          newMap[idx].skey = e.target.value;
+                                          dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: newMap } });
+                                      }}
+                                  />
+                                  <button
+                                      className="text-red-500 hover:text-red-700 font-bold px-2"
+                                      onClick={() => {
+                                          const newMap = [...(state.config.teeSkeyMap || [])];
+                                          newMap.splice(idx, 1);
+                                          dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: newMap } });
+                                      }}
+                                  >
+                                      &times;
+                                  </button>
+                              </div>
+                          ))}
+                          {(!state.config.teeSkeyMap || state.config.teeSkeyMap.length === 0) && (
+                              <div className="text-xs text-gray-400 italic">No TEE SKEY mappings defined.</div>
+                          )}
+                      </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                      <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-1">Support GUID Mapping Column:</label>
+                  <div>
+                      <div className="flex items-center space-x-4 mb-3">
+                          <label className="block text-sm font-semibold text-gray-700">Support GUID Mapping Column:</label>
                           <select
-                              className="w-full border p-2 rounded text-sm"
+                              className="border p-1.5 rounded text-sm w-48"
                               value={state.config.supportGuidMappingColumn || ""}
                               onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { supportGuidMappingColumn: e.target.value } })}
                           >
@@ -255,25 +286,73 @@ export function ConfigTab() {
                               )}
                           </select>
                       </div>
-                      <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-1">Support GUID Mapping (JSON format: {`{"Rest": "GUID:REST-1"}`}):</label>
-                          <input type="text" className="w-full border p-2 rounded text-sm"
-                             placeholder='{"Rest": "GUID:REST-1", "Guide": "GUID:GD-1"}'
-                             value={supportGuidMapInput}
-                             onChange={(e) => setSupportGuidMapInput(e.target.value)}
-                             onBlur={(e) => {
-                                 try {
-                                     const parsed = JSON.parse(e.target.value);
-                                     if (typeof parsed === 'object' && !Array.isArray(parsed)) {
-                                         dispatch({ type: 'SET_CONFIG', payload: { supportGuidMapping: parsed } });
-                                     }
-                                 } catch (e) {
-                                     console.log(e);
-                                     // Revert to valid state on blur if invalid
-                                     setSupportGuidMapInput(JSON.stringify(state.config.supportGuidMapping || {}));
-                                 }
+
+                      <div className="flex justify-between items-center mb-2">
+                          <label className="block text-sm font-semibold text-gray-700">
+                              Support GUID Rules
+                          </label>
+                          <button
+                             className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-semibold"
+                             onClick={() => {
+                                 // To manage arrays in UI for an object map, we'll store a helper array in state if needed
+                                 // Since state.config.supportGuidMapping is an object like {"Rest": "GUID:REST-1"}
+                                 // We map it to an array of [key, val] for rendering
+                                 const currentObj = state.config.supportGuidMapping || {};
+                                 const nextKey = `Keyword_${Object.keys(currentObj).length + 1}`;
+                                 dispatch({
+                                     type: 'SET_CONFIG',
+                                     payload: { supportGuidMapping: { ...currentObj, [nextKey]: "" } }
+                                 });
                              }}
-                          />
+                          >
+                             + Add Rule
+                          </button>
+                      </div>
+
+                      <div className="space-y-2">
+                          {Object.entries(state.config.supportGuidMapping || {}).map(([keyword, guidValue], idx) => (
+                              <div key={idx} className="flex items-center space-x-2">
+                                  <input
+                                      type="text"
+                                      className="border p-1.5 rounded text-sm w-1/3"
+                                      placeholder="Match Keyword (e.g. Rest)"
+                                      value={keyword}
+                                      onChange={(e) => {
+                                          const newKey = e.target.value;
+                                          const currentObj = { ...(state.config.supportGuidMapping || {}) };
+                                          const val = currentObj[keyword];
+                                          delete currentObj[keyword];
+                                          currentObj[newKey] = val;
+                                          dispatch({ type: 'SET_CONFIG', payload: { supportGuidMapping: currentObj } });
+                                      }}
+                                  />
+                                  <span className="text-gray-400 text-xs">&rarr;</span>
+                                  <input
+                                      type="text"
+                                      className="border p-1.5 rounded text-sm flex-1"
+                                      placeholder="Export GUID (e.g. GUID:REST-1)"
+                                      value={guidValue}
+                                      onChange={(e) => {
+                                          const currentObj = { ...(state.config.supportGuidMapping || {}) };
+                                          currentObj[keyword] = e.target.value;
+                                          dispatch({ type: 'SET_CONFIG', payload: { supportGuidMapping: currentObj } });
+                                      }}
+                                  />
+                                  <button
+                                      className="text-red-500 hover:text-red-700 font-bold px-2"
+                                      onClick={() => {
+                                          const currentObj = { ...(state.config.supportGuidMapping || {}) };
+                                          delete currentObj[keyword];
+                                          dispatch({ type: 'SET_CONFIG', payload: { supportGuidMapping: currentObj } });
+                                      }}
+                                  >
+                                      &times;
+                                  </button>
+                              </div>
+                          ))}
+                          {Object.keys(state.config.supportGuidMapping || {}).length === 0 && (
+                              <div className="text-xs text-gray-400 italic">No GUID mapping rules defined.</div>
+                          )}
                       </div>
                   </div>
                </div>
