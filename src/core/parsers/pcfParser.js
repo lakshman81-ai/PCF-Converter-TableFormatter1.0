@@ -25,8 +25,12 @@ export function parsePCFText(pcfContent) {
     const keyword = parts[0].toUpperCase();
 
     // --- Header parsing ---
-    if (["ISOGEN-FILES", "UNITS-BORE", "UNITS-CO-ORDS", "UNITS-WEIGHT", "UNITS-BOLT-DIA", "UNITS-BOLT-LENGTH", "PROJECT-IDENTIFIER", "AREA"].includes(keyword)) {
+    if (["ISOGEN-FILES", "UNITS-BORE", "UNITS-CO-ORDS", "UNITS-WEIGHT", "UNITS-BOLT-DIA", "UNITS-BOLT-LENGTH", "PROJECT-IDENTIFIER", "AREA", "REVISION"].includes(keyword)) {
       headerRows.push(line);
+      dataTable.push({
+         type: keyword,
+         text: trimmed.substring(keyword.length).trim().toUpperCase() // normalise legacy lowercase headers
+      });
       continue;
     }
 
@@ -35,6 +39,10 @@ export function parsePCFText(pcfContent) {
         // Top-level pipeline reference
         pipelineRef = trimmed.substring("PIPELINE-REFERENCE".length).trim();
         headerRows.push(line);
+        dataTable.push({
+           type: keyword,
+           text: pipelineRef
+        });
       } else {
         // Sub-line reference within PIPE
         currentComponent.pipelineRef = trimmed.substring("PIPELINE-REFERENCE".length).trim();
@@ -44,6 +52,21 @@ export function parsePCFText(pcfContent) {
 
     // --- Component matching ---
     if (keyword === "MESSAGE-SQUARE") {
+      // Sometimes MESSAGE-SQUARE is inside a component (e.g. SUPPORT GUID)
+      // Check if it's on a line with value
+      if (parts.length > 1) {
+         let sqText = parts.slice(1).join(" ");
+         if (currentComponent) {
+            currentComponent.messageSquare = sqText;
+            if (sqText.startsWith("UCI:")) {
+               currentComponent.supportGuid = sqText.substring(4);
+            }
+         } else {
+            currentMessageSquare = sqText;
+         }
+         continue;
+      }
+
       // Begin a new block, store message square text from the next line
       if (currentComponent) {
         dataTable.push(finalizeComponent(currentComponent, rowIndex++));
@@ -61,13 +84,18 @@ export function parsePCFText(pcfContent) {
     }
 
     if (isComponentKeyword(keyword)) {
-      if (currentComponent && currentComponent.type !== "SUPPORT") { // Support msg squares are a bit weird, usually no message square
+      if (currentComponent) {
          dataTable.push(finalizeComponent(currentComponent, rowIndex++));
       }
 
       currentComponent = createNewComponent(keyword, currentMessageSquare, pipelineRef);
       currentMessageSquare = null;
       continue;
+    }
+
+    if (keyword === "FABRICATION-ITEM") {
+       if (currentComponent) currentComponent.fabricationItem = true;
+       continue;
     }
 
     // --- Attributes of current component ---
@@ -111,6 +139,13 @@ export function parsePCFText(pcfContent) {
 
        if (attrNum === 97) currentComponent.refNo = attrVal.replace(/^=/, "");
        if (attrNum === 98) currentComponent.csvSeqNo = attrVal;
+    }
+    if (keyword === "ITEM-CODE") {
+       currentComponent.itemCode = parts.slice(1).join(" ");
+       currentComponent.refNo = currentComponent.itemCode;
+    }
+    if (keyword === "SKEY") {
+       currentComponent.skey = parts.slice(1).join(" ");
     }
     else if (keyword === "ANGLE") {
        // Ignore for geometry logic, but can be kept for regen
@@ -205,6 +240,7 @@ function finalizeComponent(comp, index) {
   comp.wallThick = comp.ca?.[4] || null;
 
   // Fallbacks
+  comp.itemCode = comp.itemCode || comp.refNo;
   if (!comp.refNo) comp.refNo = comp.ca?.[97] ? comp.ca[97].replace(/^=/, "") : "";
   if (!comp.csvSeqNo) comp.csvSeqNo = comp.ca?.[98] || index.toString();
 

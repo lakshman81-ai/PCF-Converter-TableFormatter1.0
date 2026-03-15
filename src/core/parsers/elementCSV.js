@@ -33,10 +33,10 @@ export function parseElementCSV(firstRows, columnMap) {
   const dataTable = [];
 
   // Helper to extract value using the columnMap
-  const getVal = (row, expectedCol) => {
-    // Find the original header that was mapped to 'expectedCol'
-    const origHeader = Object.keys(columnMap).find(h => columnMap[h] === expectedCol);
-    return origHeader ? row[origHeader] : null;
+  const getVal = (row, canonicalKey) => {
+    // columnMap is { csvHeader: canonicalKey }
+    const origHeader = Object.keys(columnMap || {}).find(h => columnMap[h] === canonicalKey);
+    return origHeader && row[origHeader] ? row[origHeader] : null;
   };
 
   for (let i = 0; i < firstRows.length; i++) {
@@ -55,7 +55,7 @@ export function parseElementCSV(firstRows, columnMap) {
       csvSeqNo: getVal(row, 'CSV SEQ NO') || getVal(row, 'Sequence') || (i + 1).toString(),
       type: type.toUpperCase(),
       text: getVal(row, 'TEXT') || "",
-      pipelineRef: getVal(row, 'PIPELINE') || "",
+      pipelineRef: getVal(row, 'PIPELINE-REFERENCE') || getVal(row, 'PIPELINE') || "",
       refNo: getVal(row, 'REF NO.') || getVal(row, 'RefNo') || "",
       bore: bore,
 
@@ -71,21 +71,38 @@ export function parseElementCSV(firstRows, columnMap) {
       supportGuid: getVal(row, 'SUPPORT GUID') || "",
 
       ca: {
-        1: getVal(row, 'CA1') || null,
-        2: getVal(row, 'CA2') || null,
-        3: getVal(row, 'CA3') || null,
-        4: getVal(row, 'CA4') || null,
-        8: getVal(row, 'CA8') || null,
-        97: getVal(row, 'CA97') || null,
-        98: getVal(row, 'CA98') || null,
+        1: getVal(row, 'CA1') || getVal(row, 'CA 1') || null,
+        2: getVal(row, 'CA2') || getVal(row, 'CA 2') || null,
+        3: getVal(row, 'CA3') || getVal(row, 'CA 3') || null,
+        4: getVal(row, 'CA4') || getVal(row, 'CA 4') || null,
+        8: getVal(row, 'CA8') || getVal(row, 'CA 8') || null,
+        97: getVal(row, 'CA97') || getVal(row, 'CA 97') || null,
+        98: getVal(row, 'CA98') || getVal(row, 'CA 98') || null,
       },
 
       brlen: parseFloat(getVal(row, 'BRLEN')) || null,
     };
 
+    // Explicitly map itemCode properly
+    rowObj.itemCode = rowObj.refNo;
+
     // Fallback logic mapping
     if (rowObj.type === "SUPPORT" && rowObj.ep1 && !rowObj.supportCoor) {
        rowObj.supportCoor = rowObj.ep1;
+    }
+
+    if (rowObj.type === "OLET") {
+       if (i > 0) {
+          const prevRow = dataTable[i - 1];
+          if (prevRow && prevRow.bore) {
+             rowObj.branchBore = rowObj.bore;
+             rowObj.bore = prevRow.bore; // inherit header bore
+          }
+       } else {
+           rowObj.branchBore = rowObj.bore;
+       }
+    } else if (["TEE"].includes(rowObj.type)) {
+       rowObj.branchBore = rowObj.bore;
     }
 
     dataTable.push(rowObj);
