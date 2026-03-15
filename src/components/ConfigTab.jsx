@@ -3,6 +3,26 @@ import { useAppContext } from '../core/state';
 export function ConfigTab() {
   const { state, dispatch } = useAppContext();
 
+  // Derive unique headers and sizes from dataTable for dropdowns/UI
+  const headers = new Set();
+  const teeSizes = new Set();
+  if (state.dataTable) {
+     state.dataTable.forEach(row => {
+         Object.keys(row).forEach(k => {
+             if (k !== 'ca' && k !== 'ep1' && k !== 'ep2' && k !== 'cp' && k !== 'bp' && k !== 'supportCoor') {
+                 headers.add(k);
+             }
+         });
+         if (row.ca) Object.keys(row.ca).forEach(k => headers.add(`ca.${k}`));
+
+         if ((row.type || "").toUpperCase() === "TEE" && row.bore !== undefined && row.bore !== null) {
+             teeSizes.add(row.bore);
+         }
+     });
+  }
+  const availableHeaders = Array.from(headers).sort();
+  const availableTeeSizes = Array.from(teeSizes).sort((a,b) => a-b);
+
   const handleConfigChange = (section, field, value) => {
     dispatch({
       type: 'SET_CONFIG',
@@ -114,6 +134,230 @@ export function ConfigTab() {
               <option value="LINE-NUMBER">LINE-NUMBER</option>
            </select>
            <span className="text-xs text-gray-500 italic">Determines the boundary for multi-pass segment logic.</span>
+        </div>
+
+        {/* Formatting Config */}
+        <div className="mb-6 border-b pb-6">
+           <div className="flex items-center space-x-4 mb-4">
+               <label className="font-semibold text-sm text-gray-700 w-48">Export Formatting:</label>
+               <label className="flex items-center space-x-2 text-sm text-gray-800">
+                 <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                    checked={state.config.strictIsogen === true}
+                    onChange={(e) => {
+                       dispatch({
+                          type: 'SET_CONFIG',
+                          payload: { strictIsogen: e.target.checked }
+                       });
+                    }}
+                 />
+                 <span>Customizable ISOGEN mode</span>
+               </label>
+           </div>
+
+           {state.config.strictIsogen && (
+             <>
+               <div className="pl-52 grid grid-cols-2 gap-4">
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disableCAs || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disableCAs: e.target.checked } })} />
+                     <span>Disable CAs (1-10, 97, 98)</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disableMessageSquare || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disableMessageSquare: e.target.checked } })} />
+                     <span>Disable Message Squares</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disablePipelineReference || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disablePipelineReference: e.target.checked } })} />
+                     <span>Disable Pipeline Reference</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disableOletBlocks || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disableOletBlocks: e.target.checked } })} />
+                     <span>Disable OLET Blocks</span>
+                  </label>
+                  <label className="flex items-center space-x-2 text-sm text-gray-800">
+                     <input type="checkbox" className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={state.config.disableZeroLength || false}
+                        onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { disableZeroLength: e.target.checked } })} />
+                     <span>Disable Zero Length Components</span>
+                  </label>
+               </div>
+
+               <div className="pl-52 mt-4">
+                   <label className="block text-sm font-semibold text-gray-700 mb-1">Custom Header (overrides defaults if not empty):</label>
+                   <textarea
+                      className="w-full border p-2 rounded text-sm h-24"
+                      placeholder="ISOGEN-FILES ISOGEN.FLS\nUNITS-BORE MM\n..."
+                      value={state.config.customHeader || ""}
+                      onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { customHeader: e.target.value } })}
+                   />
+               </div>
+
+               <div className="pl-52 mt-4 space-y-6">
+                  <div>
+                      <div className="flex justify-between items-center mb-2">
+                          <label className="block text-sm font-semibold text-gray-700">
+                              TEE SKEY Mapping
+                          </label>
+                          <button
+                             className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-semibold"
+                             onClick={() => {
+                                 const currentMap = state.config.teeSkeyMap || [];
+                                 dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: [...currentMap, { bore: "", skey: "" }] } });
+                             }}
+                          >
+                             + Add Mapping
+                          </button>
+                      </div>
+
+                      <div className="space-y-2">
+                          {(state.config.teeSkeyMap || []).map((mapping, idx) => (
+                              <div key={idx} className="flex items-center space-x-2">
+                                  <select
+                                      className="border p-1.5 rounded text-sm w-32"
+                                      value={mapping.bore || ""}
+                                      onChange={(e) => {
+                                          const newMap = [...(state.config.teeSkeyMap || [])];
+                                          newMap[idx].bore = e.target.value;
+                                          dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: newMap } });
+                                      }}
+                                  >
+                                      <option value="">-- Bore --</option>
+                                      {availableTeeSizes.map(size => <option key={size} value={size}>{size}</option>)}
+                                  </select>
+                                  <input
+                                      type="text"
+                                      className="border p-1.5 rounded text-sm flex-1"
+                                      placeholder="SKEY (e.g. TEFL)"
+                                      value={mapping.skey || ""}
+                                      onChange={(e) => {
+                                          const newMap = [...(state.config.teeSkeyMap || [])];
+                                          newMap[idx].skey = e.target.value;
+                                          dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: newMap } });
+                                      }}
+                                  />
+                                  <button
+                                      className="text-red-500 hover:text-red-700 font-bold px-2"
+                                      onClick={() => {
+                                          const newMap = [...(state.config.teeSkeyMap || [])];
+                                          newMap.splice(idx, 1);
+                                          dispatch({ type: 'SET_CONFIG', payload: { teeSkeyMap: newMap } });
+                                      }}
+                                  >
+                                      &times;
+                                  </button>
+                              </div>
+                          ))}
+                          {(!state.config.teeSkeyMap || state.config.teeSkeyMap.length === 0) && (
+                              <div className="text-xs text-gray-400 italic">No TEE SKEY mappings defined.</div>
+                          )}
+                      </div>
+                  </div>
+
+                  <div>
+                      <div className="flex items-center space-x-4 mb-3">
+                          <label className="block text-sm font-semibold text-gray-700">Support GUID Mapping Column:</label>
+                          <select
+                              className="border p-1.5 rounded text-sm w-48"
+                              value={state.config.supportGuidMappingColumn || ""}
+                              onChange={(e) => dispatch({ type: 'SET_CONFIG', payload: { supportGuidMappingColumn: e.target.value } })}
+                          >
+                              <option value="">-- Select Column --</option>
+                              {availableHeaders.length > 0 ? (
+                                  availableHeaders.map(h => <option key={h} value={h}>{h}</option>)
+                              ) : (
+                                  <>
+                                      <option value="1">Component Attribute 1</option>
+                                      <option value="2">Component Attribute 2</option>
+                                      <option value="3">Component Attribute 3</option>
+                                      <option value="4">Component Attribute 4</option>
+                                      <option value="5">Component Attribute 5</option>
+                                      <option value="text">Message Square Text</option>
+                                      <option value="supportName">Support Name</option>
+                                  </>
+                              )}
+                          </select>
+                      </div>
+
+                      <div className="flex justify-between items-center mb-2">
+                          <label className="block text-sm font-semibold text-gray-700">
+                              Support GUID Rules
+                          </label>
+                          <button
+                             className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 font-semibold"
+                             onClick={() => {
+                                 // To manage arrays in UI for an object map, we'll store a helper array in state if needed
+                                 // Since state.config.supportGuidMapping is an object like {"Rest": "GUID:REST-1"}
+                                 // We map it to an array of [key, val] for rendering
+                                 const currentObj = state.config.supportGuidMapping || {};
+                                 const nextKey = `Keyword_${Object.keys(currentObj).length + 1}`;
+                                 dispatch({
+                                     type: 'SET_CONFIG',
+                                     payload: { supportGuidMapping: { ...currentObj, [nextKey]: "" } }
+                                 });
+                             }}
+                          >
+                             + Add Rule
+                          </button>
+                      </div>
+
+                      <div className="space-y-2">
+                          {Object.entries(state.config.supportGuidMapping || {}).map(([keyword, guidValue], idx) => (
+                              <div key={idx} className="flex items-center space-x-2">
+                                  <input
+                                      type="text"
+                                      className="border p-1.5 rounded text-sm w-1/3"
+                                      placeholder="Match Keyword (e.g. Rest)"
+                                      value={keyword}
+                                      onChange={(e) => {
+                                          const newKey = e.target.value;
+                                          const currentObj = { ...(state.config.supportGuidMapping || {}) };
+                                          const val = currentObj[keyword];
+                                          delete currentObj[keyword];
+                                          currentObj[newKey] = val;
+                                          dispatch({ type: 'SET_CONFIG', payload: { supportGuidMapping: currentObj } });
+                                      }}
+                                  />
+                                  <span className="text-gray-400 text-xs">&rarr;</span>
+                                  <input
+                                      type="text"
+                                      className="border p-1.5 rounded text-sm flex-1"
+                                      placeholder="Export GUID (e.g. GUID:REST-1)"
+                                      value={guidValue}
+                                      onChange={(e) => {
+                                          const currentObj = { ...(state.config.supportGuidMapping || {}) };
+                                          currentObj[keyword] = e.target.value;
+                                          dispatch({ type: 'SET_CONFIG', payload: { supportGuidMapping: currentObj } });
+                                      }}
+                                  />
+                                  <button
+                                      className="text-red-500 hover:text-red-700 font-bold px-2"
+                                      onClick={() => {
+                                          const currentObj = { ...(state.config.supportGuidMapping || {}) };
+                                          delete currentObj[keyword];
+                                          dispatch({ type: 'SET_CONFIG', payload: { supportGuidMapping: currentObj } });
+                                      }}
+                                  >
+                                      &times;
+                                  </button>
+                              </div>
+                          ))}
+                          {Object.keys(state.config.supportGuidMapping || {}).length === 0 && (
+                              <div className="text-xs text-gray-400 italic">No GUID mapping rules defined.</div>
+                          )}
+                      </div>
+                  </div>
+               </div>
+             </>
+           )}
         </div>
 
         {/* Row 1: Bore and Sweep Configs */}
