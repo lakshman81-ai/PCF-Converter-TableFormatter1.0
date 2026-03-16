@@ -120,7 +120,9 @@ export function runValidation(dataTable, config, log) {
         }
 
         const epBore = row.ep1.bore ?? row.bore;
-        const cpBore = row.cp.bore ?? row.branchBore ?? row.bore;
+        // In PCF, CP sits on the main run, so it must match EP bore.
+        // DO NOT fallback to branchBore, because branchBore is the reduced size of the tee.
+        const cpBore = row.cp.bore ?? row.bore;
 
         if (isEnabled("V9") && epBore !== undefined && cpBore !== undefined && epBore !== cpBore) {
            addResult("V9", "ERROR", row._rowIndex, `ERROR [V9]: TEE CP bore (${cpBore}) ≠ EP bore (${epBore}).`);
