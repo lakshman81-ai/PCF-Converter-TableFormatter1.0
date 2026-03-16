@@ -62,6 +62,9 @@ function runBenchmark(filename) {
   console.log(`\n------------------------------------------------------`);
 
   // 2. Validate (Pre-Fix)
+  // Pre-process rows to ensure they have _rowIndex for validation/fixers
+  dataTable.forEach((r, i) => r._rowIndex = i + 1);
+
   let valLogs = [];
   runValidation(dataTable, CONFIG_MOCK, valLogs);
   const initialErrors = valLogs.filter(l => l.type === 'Error' || l.type === 'Warning');
