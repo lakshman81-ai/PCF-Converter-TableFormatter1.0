@@ -17,26 +17,31 @@ export function DataTableTab() {
     // Dynamic Missing Mandatory Highlighting
     let isMissing = false;
 
-    if (field === 'skey' && !row.skey) {
-       // Only a few things don't strictly *need* an SKEY but almost everything else does
-       if (!["PIPE", "SUPPORT", "MESSAGE-SQUARE"].includes(type)) {
+    // Standard headers don't have mandatory geometric fields like bore and skey
+    const isHeaderRow = ["ISOGEN-FILES", "UNITS-BORE", "UNITS-CO-ORDS", "UNITS-WEIGHT", "UNITS-BOLT-DIA", "UNITS-BOLT-LENGTH", "PROJECT-IDENTIFIER", "AREA", "PIPELINE-REFERENCE", "REVISION"].includes(type);
+
+    if (!isHeaderRow) {
+        if (field === 'skey' && !row.skey) {
+           // Only a few things don't strictly *need* an SKEY but almost everything else does
+           if (!["PIPE", "SUPPORT", "MESSAGE-SQUARE"].includes(type)) {
+               isMissing = true;
+           }
+        }
+        if (field === 'bp' && !row.bp && (type === "TEE" || type === "OLET")) {
            isMissing = true;
-       }
-    }
-    if (field === 'bp' && !row.bp && (type === "TEE" || type === "OLET")) {
-       isMissing = true;
-    }
-    if (field === 'cp' && !row.cp && (type === "TEE" || type === "OLET")) {
-       isMissing = true;
-    }
-    if (field === 'ca8' && !row.ca?.[8] && (type === "VALVE" || type === "FLANGE")) {
-       isMissing = true;
-    }
-    if (field === 'supportCoor' && !row.supportCoor && type === "SUPPORT") {
-       isMissing = true;
-    }
-    if (field === 'bore' && (row.bore === null || row.bore === undefined || row.bore === "") && type !== "MESSAGE-SQUARE" && type !== "SUPPORT") {
-       isMissing = true;
+        }
+        if (field === 'cp' && !row.cp && (type === "TEE" || type === "OLET")) {
+           isMissing = true;
+        }
+        if (field === 'ca8' && !row.ca?.[8] && (type === "VALVE" || type === "FLANGE")) {
+           isMissing = true;
+        }
+        if (field === 'supportCoor' && !row.supportCoor && type === "SUPPORT") {
+           isMissing = true;
+        }
+        if (field === 'bore' && (row.bore === null || row.bore === undefined || row.bore === "") && type !== "MESSAGE-SQUARE" && type !== "SUPPORT") {
+           isMissing = true;
+        }
     }
 
     if (isMissing) {

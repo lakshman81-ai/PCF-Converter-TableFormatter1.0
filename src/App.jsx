@@ -120,7 +120,9 @@ function App() {
                              try {
                                const { default: BM_DATA } = await import('./tests/benchmark_data.json', { with: { type: "json" } });
                                // Get all element CSV tests
-                               const mockTests = BM_DATA.filter(b => b.input?.length > 0 && (b.input[0]["CSV SEQ NO"] || b.input[0]["Sequence"]));
+                               // Let the user pick from all benchmark tests, since they don't all have Sequence/CSV SEQ NO keys natively anymore.
+                               // They use the internal data model schema now.
+                               const mockTests = BM_DATA.filter(b => b.input?.length > 0);
 
                                if (mockTests.length === 0) {
                                   alert("No mock data tests found.");
@@ -140,42 +142,10 @@ function App() {
                                }
 
                                const mockTest = mockTests[idx];
-                               const data = mockTest.input;
+                               const dataTable = mockTest.input; // Benchmarks already store data as the parsed dataTable schema
 
-                               const { parseElementCSV } = await import('./core/parsers/elementCSV');
-
-                               const columnMap = {
-                                  "Sequence": "CSV SEQ NO",
-                                  "CSV SEQ NO": "CSV SEQ NO",
-                                  "COMPONENT": "Type",
-                                  "Type": "Type",
-                                  "TEXT": "TEXT",
-                                  "PIPELINE-REFERENCE": "PIPELINE",
-                                  "PIPELINE": "PIPELINE",
-                                  "Line No": "PIPELINE",
-                                  "REF NO.": "REF NO.",
-                                  "RefNo": "REF NO.",
-                                  "BORE": "BORE",
-                                  "EP1 COORDS": "EP1 COORDS",
-                                  "EP2 COORDS": "EP2 COORDS",
-                                  "CP COORDS": "CP COORDS",
-                                  "BP COORDS": "BP COORDS",
-                                  "SKEY": "SKEY",
-                                  "SUPPORT COOR": "SUPPORT COORDS",
-                                  "SUPPORT GUID": "SUPPORT GUID"
-                                };
-                               const mappedInput = data.map(row => {
-                                 const newRow = { ...row };
-                                 if (newRow["Sequence"]) {
-                                   newRow["CSV SEQ NO"] = newRow["Sequence"];
-                                   delete newRow["Sequence"];
-                                 }
-                                 return newRow;
-                               });
-
-                               const dataTable = parseElementCSV(mappedInput, columnMap);
                                dispatch({ type: 'SET_DATA_TABLE', payload: dataTable });
-                               dispatch({ type: 'ADD_LOG_ENTRY', payload: { type: "Info", stage: 2, message: `Mock JSON explicitly loaded via Element Parser. Created ${dataTable.length} rows.` } });
+                               dispatch({ type: 'ADD_LOG_ENTRY', payload: { type: "Info", stage: 2, message: `Mock JSON explicitly loaded for test ${mockTest.id}. Loaded ${dataTable.length} rows.` } });
                              } catch (e) {
                                alert("Failed to load Mock JSON: " + e.message);
                              }
