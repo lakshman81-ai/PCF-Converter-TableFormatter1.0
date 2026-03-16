@@ -63,15 +63,25 @@ export function runValidation(dataTable, config, log) {
     }
 
     // V2: Decimal consistency (Document-wide)
-    if (isEnabled("V2") && hasV2Mismatch && row.ep1 && typeof row.bore === 'number') {
+    // Update to strictly check if coords decimal length matches config if strictly configured
+    if (isEnabled("V2") && row.ep1 && typeof row.bore === 'number') {
       const boreStr = row._rawBore || row.bore.toString();
       const xStr = row._rawX || row.ep1.x.toString();
       const yStr = row.ep1.y.toString();
       const bDec = (boreStr.split('.')[1] || '').length;
-      const cDec = Math.max((xStr.split('.')[1] || '').length, (yStr.split('.')[1] || '').length);
+      const xDec = (xStr.split('.')[1] || '').length;
+      const yDec = (yStr.split('.')[1] || '').length;
+      const cDec = Math.max(xDec, yDec);
 
-      if (bDec !== docBoreDec || cDec !== docCoordDec) {
-         addResult("V2", "WARNING", row._rowIndex, `WARNING [V2]: Decimal precision mismatch. Row has Bore: ${bDec} dec, Coords: ${cDec} dec. Document majority is Bore: ${docBoreDec}, Coords: ${docCoordDec}.`);
+      const configDecimals = config.decimals !== undefined ? config.decimals : 4;
+
+      if (hasV2Mismatch) {
+          if (bDec !== docBoreDec || cDec !== docCoordDec) {
+             addResult("V2", "WARNING", row._rowIndex, `WARNING [V2]: Decimal precision mismatch. Row has Bore: ${bDec} dec, Coords: ${cDec} dec. Document majority is Bore: ${docBoreDec}, Coords: ${docCoordDec}.`);
+          }
+      } else if (configDecimals !== undefined && (bDec !== configDecimals || cDec !== configDecimals)) {
+          // Explicitly check against the generation target config to ensure we catch formatting errors
+          addResult("V2", "ERROR", row._rowIndex, `ERROR [V2]: Bore precision mismatch. Bore must be formatted to ${configDecimals} decimals.`);
       }
     }
 
@@ -120,7 +130,9 @@ export function runValidation(dataTable, config, log) {
         }
 
         const epBore = row.ep1.bore ?? row.bore;
-        const cpBore = row.cp.bore ?? row.branchBore ?? row.bore;
+        // In PCF, CP sits on the main run, so it must match EP bore.
+        // DO NOT fallback to branchBore, because branchBore is the reduced size of the tee.
+        const cpBore = row.cp.bore ?? row.bore;
 
         if (isEnabled("V9") && epBore !== undefined && cpBore !== undefined && epBore !== cpBore) {
            addResult("V9", "ERROR", row._rowIndex, `ERROR [V9]: TEE CP bore (${cpBore}) ≠ EP bore (${epBore}).`);

@@ -2,6 +2,7 @@
  * BASIC FIXER (Steps 1-4)
  * Implementation of PCF Consolidated Master v2.0 Part C §5.2–5.5
  */
+import { vec } from '../../utils/math.js';
 
 export function runBasicFixes(dataTable, config, log) {
   const result = [...dataTable];
@@ -61,17 +62,17 @@ export function runBasicFixes(dataTable, config, log) {
 
     // Auto-calculate missing CP/BP
     if (type === "TEE" && row.ep1 && row.ep2) {
-       // V9 Auto-fix: Ensure TEE CP bore matches EP bore
+       // V9 Auto-fix: Ensure TEE CP bore matches EP bore (main run).
+       // DO NOT overwrite branchBore, as the TEE might be a reducing TEE.
        const epBore = row.ep1.bore ?? row.bore;
        if (row.cp && epBore !== undefined) {
-         const cpBore = row.cp.bore ?? row.branchBore ?? row.bore;
+         const cpBore = row.cp.bore ?? row.bore;
          if (cpBore !== undefined && cpBore !== epBore) {
            const oldCpBore = cpBore;
            row.cp.bore = epBore;
-           row.branchBore = epBore;
            if (!row._modified) row._modified = {};
            row._modified["cp"] = "Syntax Fixed";
-           const msg = `[V9 Fix] Synchronized TEE CP/Branch bore (${oldCpBore}) to match EP bore (${epBore}).`;
+           const msg = `[V9 Fix] Synchronized TEE CP bore (${oldCpBore}) to match EP bore (${epBore}).`;
            log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: ${msg}` });
            row.fixingAction = msg;
            row.fixingActionTier = 1;
@@ -79,6 +80,12 @@ export function runBasicFixes(dataTable, config, log) {
          }
        }
        if (!row._modified) row._modified = {};
+
+       const mid = {
+           x: (row.ep1.x + row.ep2.x) / 2,
+           y: (row.ep1.y + row.ep2.y) / 2,
+           z: (row.ep1.z + row.ep2.z) / 2
+       };
 
        if (!row.cp && row.bp) {
            // If BP exists, the CP is the intersection of EP1-EP2 and the perpendicular from BP
@@ -90,14 +97,10 @@ export function runBasicFixes(dataTable, config, log) {
            row.cp = cp;
            row._modified["cp"] = "Calculated";
            log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: Auto-calculated TEE CP from BP perpendicular intersection.` });
-       } else if (!row.cp || (row.cp.x > 9900 && row.cp.y > 9900)) {
-           // Detect generic missing or corrupted (9999,9999,9999) CP and recalculate
+       } else if (!row.cp || (row.cp.x > 9900 && row.cp.y > 9900) || vec.dist(row.cp, mid) > 0.1) {
+           // Detect missing, corrupted (9999,9999,9999), or significantly off-center CP and recalculate
            const oldCp = row.cp;
-           row.cp = {
-               x: (row.ep1.x + row.ep2.x) / 2,
-               y: (row.ep1.y + row.ep2.y) / 2,
-               z: (row.ep1.z + row.ep2.z) / 2
-           };
+           row.cp = mid;
            row._modified["cp"] = "Calculated";
            if (oldCp) {
                const msg = `[V8 Fix] Re-calculated TEE CP from corrupted/invalid midpoint.`;
