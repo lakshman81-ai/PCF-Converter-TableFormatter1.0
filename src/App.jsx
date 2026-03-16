@@ -118,7 +118,8 @@ function App() {
                           className="px-4 py-1 bg-purple-100 text-purple-700 rounded hover:bg-purple-200 text-sm font-bold"
                           onClick={async () => {
                              try {
-                               const { default: BM_DATA } = await import('./tests/benchmark_data.json', { with: { type: "json" } });
+                               // @vite-ignore
+                               const { default: BM_DATA } = await import('./tests/benchmark_data.json');
                                // Get all element CSV tests
                                // Let the user pick from all benchmark tests, since they don't all have Sequence/CSV SEQ NO keys natively anymore.
                                // They use the internal data model schema now.

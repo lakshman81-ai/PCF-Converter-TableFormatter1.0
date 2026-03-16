@@ -41,6 +41,39 @@ export function runBasicFixes(dataTable, config, log) {
       }
     }
 
+    // V2 Auto-fix: Normalize bore formatting
+    const configDecimals = config.decimals !== undefined ? config.decimals : 4;
+    if (row.bore != null) {
+       const oldBoreStr = row._rawBore || row.bore.toString();
+       const bDec = (oldBoreStr.split('.')[1] || '').length;
+       if (bDec !== configDecimals) {
+           const newBoreStr = Number(row.bore).toFixed(configDecimals);
+           if (oldBoreStr !== newBoreStr) {
+               row.bore = newBoreStr;
+               if (!row._modified) row._modified = {};
+               row._modified["bore"] = "Syntax Fixed";
+               const msg = `[V2 Fix] Fixed precision error by normalizing bore string. Bore change from ${oldBoreStr} to ${row.bore}.`;
+               log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: ${msg}` });
+               row.fixingAction = msg;
+               row.fixingActionTier = 1;
+               row.fixingActionRuleId = "V2";
+           }
+       }
+    }
+
+    // V1 Auto-fix: Zero coordinates (Padding)
+    if (row.ep1 && row.ep1.x === 0 && row.ep1.y === 0 && row.ep1.z === 0) {
+        const oldEp1 = `${row.ep1.x}, ${row.ep1.y}, ${row.ep1.z}`;
+        row.ep1 = { x: 0.1, y: 0.1, z: 0.1 };
+        if (!row._modified) row._modified = {};
+        row._modified["ep1"] = "Syntax Fixed";
+        const msg = `[V1 Fix] Fixed V1 by padding zero coordinates. EP1 change from ${oldEp1} to 0.1, 0.1, 0.1.`;
+        log.push({ type: "Fix", stage: 3, row: row._rowIndex, message: `Row ${row._rowIndex}: ${msg}` });
+        row.fixingAction = msg;
+        row.fixingActionTier = 1;
+        row.fixingActionRuleId = "V1";
+    }
+
     // Auto-calculate length if missing
     if (row.ep1 && row.ep2 && !row.len1 && !row.len2 && !row.len3) {
        row.deltaX = row.ep2.x - row.ep1.x;
