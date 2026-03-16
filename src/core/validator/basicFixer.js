@@ -12,10 +12,10 @@ export function runBasicFixes(dataTable, config, log) {
 
     // Step 2: Fill missing identifiers
     if (!row.refNo) {
-      row.refNo = row.ca?.[97] ? row.ca[97].replace(/^=/, "") : `ROW_${row._rowIndex}`;
+      row.refNo = row.ca?.[97] ? row.ca[97].replace(/^=/, "") : `ROW_${row._rowIndex || (i + 1)}`;
     }
     if (!row.csvSeqNo) {
-      row.csvSeqNo = row.ca?.[98] || row._rowIndex.toString();
+      row.csvSeqNo = row.ca?.[98] || (row._rowIndex ? row._rowIndex.toString() : (i + 1).toString());
     }
 
     // Step 3: Bore unit conversion & Interpolation
