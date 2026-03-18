@@ -5,7 +5,7 @@
 
 import { vec } from '../../utils/math';
 
-export function twoPassOrphanSweep(allRows, config) {
+export function twoPassOrphanSweep(allRows, config, log = []) {
   // Pass 1: Line_Key matched
   const lineGroups = {};
   for (const row of allRows) {
@@ -18,7 +18,7 @@ export function twoPassOrphanSweep(allRows, config) {
   let allOrphans = [];
 
   for (const [lineKey, points] of Object.entries(lineGroups)) {
-    const { sorted, orphans } = orphanSweep(points, lineKey, config);
+    const { sorted, orphans } = orphanSweep(points, lineKey, config, null, log);
     orderedChains[lineKey] = sorted;
     allOrphans.push(...orphans);
   }
@@ -52,8 +52,10 @@ export function twoPassOrphanSweep(allRows, config) {
   return { orderedChains };
 }
 
-export function pureOrphanSweep(allRows, config) {
+export function pureOrphanSweep(allRows, config, log = []) {
   // Pure topology sweep
+  log.push({ type: "Warning", stage: 1, message: "Non-sequential data without Line_Key. Topology-only reconstruction. Higher risk of cross-line errors." });
+
   const terminals = findChainTerminals(allRows);
   const chains = [];
   let remaining = new Set(allRows);
@@ -61,7 +63,7 @@ export function pureOrphanSweep(allRows, config) {
   for (const terminal of terminals) {
     if (!remaining.has(terminal)) continue;
 
-    const { sorted } = orphanSweep(Array.from(remaining), null, config, terminal);
+    const { sorted } = orphanSweep(Array.from(remaining), null, config, terminal, log);
 
     if (sorted.length >= 2) {
       chains.push(sorted);
@@ -69,10 +71,35 @@ export function pureOrphanSweep(allRows, config) {
     }
   }
 
-  return { pureChains: chains, remainingOrphans: Array.from(remaining) };
+  // Step 3 (R-PTE-53): Handle remaining orphans by attempting sub-chains (Islands)
+  let safetyLimit = 50;
+  while (remaining.size > 0 && safetyLimit > 0) {
+      safetyLimit--;
+      const seedArray = Array.from(remaining);
+      const seed = seedArray[0];
+      const { sorted: subChain } = orphanSweep(seedArray, null, config, seed, log);
+
+      if (subChain.length > 1) {
+          chains.push(subChain);
+          for (const p of subChain) remaining.delete(p);
+      } else {
+          // Keep it to avoid data loss
+          chains.push([seed]);
+          remaining.delete(seed);
+      }
+  }
+
+  // PureSweep needs to return an object structurally identical to twoPassOrphanSweep
+  // so `assembleElements` downstream can parse it cleanly.
+  const orderedChains = {};
+  chains.forEach((chain, i) => {
+     orderedChains[`GLOBAL_${i}`] = chain;
+  });
+
+  return orderedChains;
 }
 
-function orphanSweep(points, lineKey, config, startTerminal = null) {
+function orphanSweep(points, lineKey, config, startTerminal = null, log = []) {
   if (!points || points.length === 0) return { sorted: [], orphans: [] };
 
   const origin = startTerminal || findChainTerminal(points);
@@ -87,7 +114,7 @@ function orphanSweep(points, lineKey, config, startTerminal = null) {
   let travelDirection = null;
 
   while (remaining.size > 0) {
-    const neighbor = sweepForNeighbor(current, Array.from(remaining), travelAxis, travelDirection, lineKey, config);
+    const neighbor = sweepForNeighbor(current, Array.from(remaining), travelAxis, travelDirection, lineKey, config, log);
 
     if (!neighbor) break;
 
@@ -106,7 +133,7 @@ function orphanSweep(points, lineKey, config, startTerminal = null) {
   return { sorted: ordered, orphans: Array.from(remaining) };
 }
 
-function sweepForNeighbor(current, candidates, travelAxis, travelDir, lineKey, config) {
+function sweepForNeighbor(current, candidates, travelAxis, travelDir, lineKey, config, log = []) {
   const NB = current.bore || 350;
   const filtered = lineKey ? candidates.filter(c => c.Line_Key === lineKey) : candidates;
 
@@ -119,6 +146,17 @@ function sweepForNeighbor(current, candidates, travelAxis, travelDir, lineKey, c
     { radius: 7000, label: "very long span" },
     { radius: 13000, label: "maximum span" }
   ];
+
+  // Pull score multipliers from config per PTE-002 Sec 12, with safe fallbacks
+  const scores = config?.pte?.scoring || {
+    sameAxisBonus: 0.3,
+    foldbackPenalty: 5.0,
+    axisChangePenalty: 1.5,
+    singleAxisBonus: 0.5,
+    twoAxisBonus: 0.9,
+    diagonalPenalty: 2.0,
+    boreMatchBonus: 0.9
+  };
 
   for (const stage of stages) {
     const results = [];
@@ -136,37 +174,50 @@ function sweepForNeighbor(current, candidates, travelAxis, travelDir, lineKey, c
         // Axis alignment bonuses/penalties from PCF-PTE-002 §10
         if (travelAxis) {
           if (axis === travelAxis && dir === travelDir) {
-            score *= 0.3; // 70% bonus (same direction)
+            score *= scores.sameAxisBonus;
           } else if (axis === travelAxis && dir !== travelDir) {
-            score *= 5.0; // 5x penalty (fold-back)
+            score *= scores.foldbackPenalty;
           } else {
-            score *= 1.5; // 50% penalty (axis change / bend)
+            score *= scores.axisChangePenalty;
           }
         }
 
         // Single-axis preference
         const nonZeroAxes = countNonZeroAxes(delta, 0.5);
         if (nonZeroAxes === 1) {
-            score *= 0.5; // 50% bonus
+            score *= scores.singleAxisBonus;
         } else if (nonZeroAxes === 2) {
-            score *= 0.9; // 10% bonus
+            score *= scores.twoAxisBonus;
         } else if (nonZeroAxes >= 3) {
-            score *= 2.0; // Diagonal penalty
+            score *= scores.diagonalPenalty;
         }
 
-        results.push({ candidate: cand, score, axis, dir });
+        // Bore consistency check
+        if (cand.bore && current.bore && Number(cand.bore) === Number(current.bore)) {
+            score *= scores.boreMatchBonus;
+        }
+
+        results.push({ candidate: cand, score, axis, dir, distance: d });
       }
     }
 
     if (results.length > 0) {
       results.sort((a, b) => a.score - b.score);
 
-      // Ambuguity Check
       const best = results[0];
+
+      // Ambuguity Check per R-PTE-54
       const closeMatches = results.filter(r => r.score < best.score * 1.1);
-      if (closeMatches.length > 1 && config && config.log) {
-          // Could log ambiguity warning here if log array is available
+      if (closeMatches.length > 1) {
+          log.push({ type: "Warning", stage: 1, message: `Sweep Ambiguity: Multiple candidates within 10% score margin for origin ${current.Type || 'Unknown'} at Stage [${stage.label}].` });
       }
+
+      if (stage.radius > 5.0 * NB) {
+          log.push({ type: "Trace", stage: 1, message: `Orphan Sweep escalated to [${stage.label}] (Radius: ${stage.radius.toFixed(1)}mm) to find neighbor.` });
+      }
+
+      log.push({ type: "Info", stage: 1, message: `Attached orphan ${best.candidate.Type || 'Unknown'} to sequence. Dist: ${best.distance.toFixed(1)}mm. Score: ${best.score.toFixed(2)}.` });
+
       return best.candidate;
     }
   }

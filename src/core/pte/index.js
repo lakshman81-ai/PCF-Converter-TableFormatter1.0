@@ -84,7 +84,12 @@ export function runPTEConversion(intermediateRows, config, log) {
     case "CASE_D_a":
     case "CASE_D_b": {
       const useLineKey = pteCase === "CASE_D_a";
-      resultTable = useLineKey ? twoPassOrphanSweep(intermediateRows, config, log) : pureOrphanSweep(intermediateRows, config, log);
+      const sweepOutput = useLineKey ? twoPassOrphanSweep(intermediateRows, config, log) : pureOrphanSweep(intermediateRows, config, log);
+      // Both now return a dictionary of { lineKey: [chain_elements] } or { "GLOBAL_n": [chain_elements] }
+      // Assemble these exactly like CASE_A and CASE_B
+      // Ensure we extract from orderedChains if it's the structured return of twoPass
+      const chains = sweepOutput.orderedChains || sweepOutput;
+      resultTable = assembleElements(chains);
       break;
     }
     default:
